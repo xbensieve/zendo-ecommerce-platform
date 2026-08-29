@@ -1,0 +1,1 @@
+ALTER TABLE identity_ctx.users ADD COLUMN status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE';

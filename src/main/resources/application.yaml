@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: Zendo
+
+  # JPA / Hibernate
+  jpa:
+    hibernate:
+      ddl-auto: validate    # Rule 05 §2 — Flyway owns schema evolution
+    open-in-view: false      # Prevent lazy-loading outside transaction scope
+
+  # Flyway — schema migration authority (ADR-010)
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  # PostgreSQL datasource — credentials from environment variables
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/zendo}
+    username: ${DB_USERNAME:zendo}
+    password: ${DB_PASSWORD:zendo}

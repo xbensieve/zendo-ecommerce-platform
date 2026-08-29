@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: zendo-postgres
+    environment:
+      POSTGRES_USER: zendo
+      POSTGRES_PASSWORD: zendo_password
+      POSTGRES_DB: zendo_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - zendo-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zendo -d zendo_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: zendo-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - zendo-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: zendo-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: zendo
+      RABBITMQ_DEFAULT_PASS: zendo_password
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - zendo-rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  zendo-postgres-data:
+  zendo-redis-data:
+  zendo-rabbitmq-data:

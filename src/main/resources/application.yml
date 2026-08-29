@@ -1,0 +1,82 @@
+spring:
+  application:
+    name: zendo
+
+  profiles:
+    active: dev
+
+  mvc:
+    async:
+      request-timeout: 10000
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?currentSchema=public
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 5000
+      max-lifetime: 1800000
+      maximum-pool-size: 50
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    schemas: public, identity, vendor, catalog, inventory, cart, order_ctx, payment, promotion, notification, review, shared
+    default-schema: public
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      timeout: 1s
+      connect-timeout: 2s
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT}
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASSWORD}
+    listener:
+      simple:
+        observation-enabled: true
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1s
+          multiplier: 2
+    template:
+      observation-enabled: true
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 1.0
+
+server:
+  tomcat:
+    threads:
+      max: 200
+    accept-count: 100

@@ -1,0 +1,27 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:zendo_test}?currentSchema=public
+    username: ${DB_USER:test}
+    password: ${DB_PASSWORD:test}
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+zendo:
+  security:
+    jwt:
+      secret: test-secret-key-for-unit-tests
+      issuer: zendo-test
+      expiration-ms: 3600000

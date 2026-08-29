@@ -1,0 +1,33 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:zendo_db}?currentSchema=public
+    username: ${DB_USER:zendo}
+    password: ${DB_PASSWORD:zendo_password}
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:zendo}
+    password: ${RABBITMQ_PASSWORD:zendo_password}
+
+zendo:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:dev-secret-key-do-not-use-in-production}
+      issuer: zendo
+      expiration-ms: 3600000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus

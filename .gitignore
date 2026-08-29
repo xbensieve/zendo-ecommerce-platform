@@ -1,0 +1,175 @@
+# ==============================================================================
+# Java & Maven
+# ==============================================================================
+*.class
+*.log
+*.ctxt
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# ==============================================================================
+# Java Profiling, Dumps & Logs (CRITICAL FOR PRODUCTION)
+# ==============================================================================
+# JVM crash logs and heap dumps
+hs_err_pid*
+replay_pid*
+*.hprof
+*.jfr
+# Application logs directory
+logs/
+log/
+
+# ==============================================================================
+# Testing & Code Coverage
+# ==============================================================================
+coverage/
+*.exec
+jacoco.exec
+.sonar/
+
+# ==============================================================================
+# Environment & Secrets (CRITICAL FOR PRODUCTION)
+# ==============================================================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.jks
+*.keystore
+*.truststore
+*.p12
+*.pfx
+keys/
+secrets/
+credentials/
+application-secret.yml
+application-secret.properties
+# API Clients (Postman, Insomnia)
+*.postman_environment.json
+*.postman_collection.json
+
+# ==============================================================================
+# OS Generated Files
+# ==============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+ehthumbs_vista.db
+[Tt]humbs.db
+[Dd]esktop.ini
+
+# ==============================================================================
+# IDEs & Editors (All kinds of IDEs and text editors)
+# ==============================================================================
+# JetBrains (IntelliJ IDEA, WebStorm, etc.)
+.idea/
+*.iws
+*.iml
+*.ipr
+/out/
+*.log.1
+
+# Eclipse / Spring Tool Suite
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# VS Code
+.vscode/
+*.code-workspace
+.history/
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Vim
+.*.sw[a-p]
+*.swp
+*.swo
+*.un~
+Session.vim
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# JDeveloper
+*.jpr
+*.jws
+
+# BlueJ
+*.bluej
+package.bluej
+
+# General backups / Temporary files
+*.bak
+*.orig
+*.tmp
+*.temp
+
+# ==============================================================================
+# Node (Just in case there is a frontend build in the future)
+# ==============================================================================
+node_modules/
+npm-debug.log
+yarn-error.log
+.next/
+dist/
+
+# ==============================================================================
+# Docker & Local Data
+# ==============================================================================
+# Docker compose local overrides
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Ignore local database data folders if any
+/data/
+/db/
+/mysql/
+/postgres/
