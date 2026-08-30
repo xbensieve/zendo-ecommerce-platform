@@ -32,6 +32,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/auth/login", "/auth/register", "/error").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
+                .requestMatchers("/v3/api-docs", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers(HttpMethod.GET, "/catalog/**").permitAll() // Example: Public read
                 .requestMatchers(HttpMethod.GET, "/api/products/*/reviews/**").permitAll()
                 .anyRequest().authenticated()
