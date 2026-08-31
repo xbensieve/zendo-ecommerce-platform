@@ -94,9 +94,9 @@ class FlashSaleConcurrencyIntegrationTest {
         flashSaleUseCases.activateFlashSale(flashSale.getId());
 
         int threadCount = 1000; // Simulate 1,000 concurrent buyers
-        ExecutorService executorService = Executors.newFixedThreadPool(100); // 100 threads to pound the DB
         List<Callable<Boolean>> tasks = new ArrayList<>();
-        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch readyLatch = new CountDownLatch(threadCount); // Wait for all to be ready
+        CountDownLatch startLatch = new CountDownLatch(1); // The starting gun
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger rejectCount = new AtomicInteger(0);
 
@@ -105,7 +105,8 @@ class FlashSaleConcurrencyIntegrationTest {
             final String idempotencyKey = UUID.randomUUID().toString();
             
             tasks.add(() -> {
-                startLatch.await(); // Wait for all threads to be ready
+                readyLatch.countDown(); // Announce this thread is ready
+                startLatch.await(); // Wait for the starting gun
                 try {
                     flashSaleCheckoutUseCases.checkoutFlashSale(customerId, idempotencyKey, flashSale.getId(), 1);
                     successCount.incrementAndGet();
@@ -123,18 +124,24 @@ class FlashSaleConcurrencyIntegrationTest {
 
         long startTime = System.currentTimeMillis();
         
-        List<Future<Boolean>> futures = new ArrayList<>();
-        for (Callable<Boolean> task : tasks) {
-            futures.add(executorService.submit(task));
-        }
-        
-        startLatch.countDown(); // Unleash the herd
+        try (ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<Future<Boolean>> futures = new ArrayList<>();
+            for (Callable<Boolean> task : tasks) {
+                futures.add(executorService.submit(task));
+            }
+            
+            readyLatch.await(); // Wait until all 1000 virtual threads have started and are waiting
+            startLatch.countDown(); // Unleash the herd
 
-        for (Future<Boolean> future : futures) {
-            try {
-                future.get();
-            } catch (Exception e) {
-                // Handle interrupted exception
+            for (Future<Boolean> future : futures) {
+                try {
+                    future.get();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Task execution interrupted", e);
+                } catch (Exception e) {
+                    throw new RuntimeException("Task execution failed", e);
+                }
             }
         }
         
@@ -142,8 +149,6 @@ class FlashSaleConcurrencyIntegrationTest {
         log.info("Processed {} concurrent flash sale requests in {} ms", threadCount, duration);
         log.info("Successful purchases: {}", successCount.get());
         log.info("Rejected purchases: {}", rejectCount.get());
-
-        executorService.shutdown();
 
         // Assertions
         assertEquals(flashSaleAllocation, successCount.get(), "Successful purchases should exactly match allocation");
