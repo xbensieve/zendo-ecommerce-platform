@@ -1,13 +1,14 @@
 package com.zendo.inventory.api.rest;
 
 import com.zendo.inventory.application.InventoryUseCases;
+import com.zendo.shared.api.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/inventory")
+@RequestMapping("/api/v1/inventory")
 public class InventoryController {
 
     private final InventoryUseCases useCases;
@@ -17,9 +18,9 @@ public class InventoryController {
     }
 
     @PostMapping("/{productId}/adjust")
-    public ResponseEntity<Void> adjustInventory(@PathVariable UUID productId, @RequestBody AdjustStockRequest request) {
+    public ResponseEntity<ApiResponse<Void>> adjustInventory(@PathVariable UUID productId, @RequestBody AdjustStockRequest request) {
         useCases.adjustInventory(productId, request.newOnHandQty(), request.referenceId());
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     public record AdjustStockRequest(int newOnHandQty, String referenceId) {}

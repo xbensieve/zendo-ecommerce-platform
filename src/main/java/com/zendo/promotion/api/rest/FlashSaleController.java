@@ -2,7 +2,9 @@ package com.zendo.promotion.api.rest;
 
 import com.zendo.promotion.application.FlashSaleUseCases;
 import com.zendo.promotion.domain.FlashSale;
+import com.zendo.shared.api.ApiResponse;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,7 +13,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/flash-sales")
+@RequestMapping("/api/v1/flash-sales")
 public class FlashSaleController {
 
     private final FlashSaleUseCases flashSaleUseCases;
@@ -23,7 +25,7 @@ public class FlashSaleController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ADMIN')")
-    public FlashSaleResponse createFlashSale(@RequestBody CreateFlashSaleRequest request) {
+    public ApiResponse<FlashSaleResponse> createFlashSale(@RequestBody CreateFlashSaleRequest request) {
         FlashSale flashSale = flashSaleUseCases.createFlashSale(
                 request.vendorId(),
                 request.productId(),
@@ -33,21 +35,29 @@ public class FlashSaleController {
                 request.startTime(),
                 request.endTime()
         );
-        return new FlashSaleResponse(flashSale.getId(), flashSale.getStatus().name());
+        return ApiResponse.success(new FlashSaleResponse(flashSale.getId(), flashSale.getStatus().name()));
     }
 
-    @PostMapping("/{id}/activate")
-    @ResponseStatus(HttpStatus.OK)
+    public record UpdateStatusRequest(String status) {}
+
+    @PatchMapping("/{id}/status")
     @PreAuthorize("hasRole('ADMIN')")
-    public void activateFlashSale(@PathVariable UUID id) {
-        flashSaleUseCases.activateFlashSale(id);
-    }
-    
-    @PostMapping("/{id}/cancel")
-    @ResponseStatus(HttpStatus.OK)
-    @PreAuthorize("hasRole('ADMIN')")
-    public void cancelFlashSale(@PathVariable UUID id) {
-        flashSaleUseCases.cancelFlashSale(id);
+    public ResponseEntity<ApiResponse<Void>> updateStatus(@PathVariable UUID id, @RequestBody UpdateStatusRequest request) {
+        if (request.status() == null) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Status is required"));
+        }
+        
+        switch (request.status().toUpperCase()) {
+            case "ACTIVE":
+                flashSaleUseCases.activateFlashSale(id);
+                break;
+            case "CANCELLED":
+                flashSaleUseCases.cancelFlashSale(id);
+                break;
+            default:
+                return ResponseEntity.badRequest().body(ApiResponse.error("Invalid status: " + request.status()));
+        }
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     public record CreateFlashSaleRequest(

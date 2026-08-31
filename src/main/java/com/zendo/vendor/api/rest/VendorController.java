@@ -2,13 +2,14 @@ package com.zendo.vendor.api.rest;
 
 import com.zendo.vendor.application.VendorUseCases;
 import com.zendo.shared.security.AuthenticatedUser;
+import com.zendo.shared.api.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/vendors")
+@RequestMapping("/api/v1/vendors")
 public class VendorController {
 
     private final VendorUseCases vendorUseCases;
@@ -21,29 +22,33 @@ public class VendorController {
 
     @PostMapping
     @PreAuthorize("hasRole('VENDOR') or hasRole('CUSTOMER')")
-    public ResponseEntity<String> onboardVendor(@RequestBody OnboardRequest request, @AuthenticationPrincipal AuthenticatedUser user) {
+    public ResponseEntity<ApiResponse<String>> onboardVendor(@RequestBody OnboardRequest request, @AuthenticationPrincipal AuthenticatedUser user) {
         String id = vendorUseCases.onboardVendor(request.name(), user.getUserId());
-        return ResponseEntity.ok(id);
+        return ResponseEntity.ok(ApiResponse.success(id));
     }
 
-    @PostMapping("/{id}/activate")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> activateVendor(@PathVariable String id) {
-        vendorUseCases.activateVendor(id);
-        return ResponseEntity.ok().build();
-    }
+    public record UpdateStatusRequest(String status) {}
 
-    @PostMapping("/{id}/suspend")
+    @PatchMapping("/{id}/status")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> suspendVendor(@PathVariable String id) {
-        vendorUseCases.suspendVendor(id);
-        return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/{id}/deactivate")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> deactivateVendor(@PathVariable String id) {
-        vendorUseCases.deactivateVendor(id);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<ApiResponse<Void>> updateStatus(@PathVariable String id, @RequestBody UpdateStatusRequest request) {
+        if (request.status() == null) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Status is required"));
+        }
+        
+        switch (request.status().toUpperCase()) {
+            case "ACTIVE":
+                vendorUseCases.activateVendor(id);
+                break;
+            case "SUSPENDED":
+                vendorUseCases.suspendVendor(id);
+                break;
+            case "INACTIVE":
+                vendorUseCases.deactivateVendor(id);
+                break;
+            default:
+                return ResponseEntity.badRequest().body(ApiResponse.error("Invalid status: " + request.status()));
+        }
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }

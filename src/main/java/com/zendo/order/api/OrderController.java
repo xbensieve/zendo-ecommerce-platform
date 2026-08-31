@@ -4,6 +4,7 @@ import com.zendo.order.application.CheckoutUseCases;
 import com.zendo.order.domain.OrderException;
 import com.zendo.order.domain.ParentOrder;
 import com.zendo.shared.security.AuthenticatedUser;
+import com.zendo.shared.api.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -30,27 +31,27 @@ public class OrderController {
 
     @PostMapping("/checkout")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<?> checkout(@RequestBody CheckoutRequest request, @AuthenticationPrincipal AuthenticatedUser user) {
+    public ResponseEntity<ApiResponse<?>> checkout(@RequestBody CheckoutRequest request, @AuthenticationPrincipal AuthenticatedUser user) {
         if (request.idempotencyKey() == null || request.idempotencyKey().isBlank()) {
-            return ResponseEntity.badRequest().body("Idempotency Key is required");
+            return ResponseEntity.badRequest().body(ApiResponse.error("Idempotency Key is required"));
         }
         
         String customerId = user.getUserId();
         ParentOrder order = checkoutUseCases.checkout(customerId, request.idempotencyKey(), request.couponCode());
         
-        return ResponseEntity.ok(Map.of(
+        return ResponseEntity.ok(ApiResponse.success(Map.of(
                 "orderId", order.getId().toString(),
                 "status", order.getStatus().name(),
                 "totalAmount", order.getTotalAmount(),
                 "currency", order.getCurrency()
-        ));
+        )));
     }
 
     @ExceptionHandler(OrderException.class)
-    public ResponseEntity<?> handleOrderException(OrderException e) {
+    public ResponseEntity<ApiResponse<?>> handleOrderException(OrderException e) {
         if (e.getMessage().contains("Duplicate checkout")) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(e.getMessage()));
         }
-        return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
     }
 }

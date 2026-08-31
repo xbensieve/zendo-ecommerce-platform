@@ -4,6 +4,7 @@ import com.zendo.review.api.ReviewQueryApi;
 import com.zendo.review.application.ReviewUseCases;
 import com.zendo.review.domain.ReviewId;
 import com.zendo.shared.security.AuthenticatedUser;
+import com.zendo.shared.api.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -13,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/v1")
 public class ReviewController {
 
     private final ReviewUseCases reviewUseCases;
@@ -28,7 +29,7 @@ public class ReviewController {
 
     @PostMapping("/reviews")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<?> createReview(
+    public ResponseEntity<ApiResponse<?>> createReview(
             @AuthenticationPrincipal AuthenticatedUser user,
             @RequestBody CreateReviewRequest request) {
         try {
@@ -39,13 +40,13 @@ public class ReviewController {
                     request.rating(),
                     request.content()
             );
-            return ResponseEntity.ok().body(reviewId.value());
+            return ResponseEntity.ok(ApiResponse.success(reviewId.value()));
         } catch (ReviewUseCases.UnauthorizedReviewException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error(e.getMessage()));
         } catch (ReviewUseCases.DuplicateReviewException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(e.getMessage()));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
         }
     }
 
@@ -53,36 +54,41 @@ public class ReviewController {
 
     @PutMapping("/reviews/{reviewId}")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<?> updateReview(
+    public ResponseEntity<ApiResponse<?>> updateReview(
             @AuthenticationPrincipal AuthenticatedUser user,
             @PathVariable UUID reviewId,
             @RequestBody UpdateReviewRequest request) {
         try {
             reviewUseCases.updateReview(user.getUserId(), new ReviewId(reviewId), request.rating(), request.content());
-            return ResponseEntity.ok().build();
+            return ResponseEntity.ok(ApiResponse.success(null));
         } catch (ReviewUseCases.UnauthorizedReviewException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error(e.getMessage()));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
         }
     }
 
-    @PutMapping("/reviews/{reviewId}/status")
+    public record ModerateReviewRequest(String status) {}
+
+    @PatchMapping("/reviews/{reviewId}/status")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> moderateReview(
+    public ResponseEntity<ApiResponse<?>> moderateReview(
             @AuthenticationPrincipal AuthenticatedUser admin,
             @PathVariable UUID reviewId,
-            @RequestParam String status) {
+            @RequestBody ModerateReviewRequest request) {
         try {
-            reviewUseCases.moderateReview(admin.getUserId(), new ReviewId(reviewId), status);
-            return ResponseEntity.ok().build();
+            if (request.status() == null) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("Status is required"));
+            }
+            reviewUseCases.moderateReview(admin.getUserId(), new ReviewId(reviewId), request.status());
+            return ResponseEntity.ok(ApiResponse.success(null));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
         }
     }
 
     @GetMapping("/products/{productId}/reviews/summary")
-    public ResponseEntity<?> getProductRatingSummary(@PathVariable UUID productId) {
-        return ResponseEntity.ok(reviewQueryApi.getProductRatingSummary(productId));
+    public ResponseEntity<ApiResponse<?>> getProductRatingSummary(@PathVariable UUID productId) {
+        return ResponseEntity.ok(ApiResponse.success(reviewQueryApi.getProductRatingSummary(productId)));
     }
 }

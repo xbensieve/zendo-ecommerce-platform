@@ -1,12 +1,13 @@
 package com.zendo.catalog.api.rest;
 
 import com.zendo.catalog.application.CatalogUseCases;
+import com.zendo.shared.api.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 
 @RestController
-@RequestMapping("/api/products")
+@RequestMapping("/api/v1/products")
 public class CatalogController {
 
     private final CatalogUseCases catalogUseCases;
@@ -18,34 +19,40 @@ public class CatalogController {
     record CreateProductRequest(String vendorId, String name, String description) {}
 
     @PostMapping
-    public ResponseEntity<String> createProduct(@RequestBody CreateProductRequest request) {
+    public ResponseEntity<ApiResponse<String>> createProduct(@RequestBody CreateProductRequest request) {
         String id = catalogUseCases.createProduct(request.vendorId(), request.name(), request.description());
-        return ResponseEntity.ok(id);
+        return ResponseEntity.ok(ApiResponse.success(id));
     }
 
     record AddVariantRequest(String sku, BigDecimal priceAmount, String currency) {}
 
     @PostMapping("/{id}/variants")
-    public ResponseEntity<String> addVariant(@PathVariable String id, @RequestBody AddVariantRequest request) {
+    public ResponseEntity<ApiResponse<String>> addVariant(@PathVariable String id, @RequestBody AddVariantRequest request) {
         String variantId = catalogUseCases.addVariant(id, request.sku(), request.priceAmount(), request.currency());
-        return ResponseEntity.ok(variantId);
+        return ResponseEntity.ok(ApiResponse.success(variantId));
     }
 
-    @PostMapping("/{id}/publish")
-    public ResponseEntity<Void> publishProduct(@PathVariable String id) {
-        catalogUseCases.publishProduct(id);
-        return ResponseEntity.ok().build();
-    }
+    public record UpdateStatusRequest(String status) {}
 
-    @PostMapping("/{id}/deactivate")
-    public ResponseEntity<Void> deactivateProduct(@PathVariable String id) {
-        catalogUseCases.deactivateProduct(id);
-        return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/{id}/archive")
-    public ResponseEntity<Void> archiveProduct(@PathVariable String id) {
-        catalogUseCases.archiveProduct(id);
-        return ResponseEntity.ok().build();
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<ApiResponse<Void>> updateStatus(@PathVariable String id, @RequestBody UpdateStatusRequest request) {
+        if (request.status() == null) {
+             return ResponseEntity.badRequest().body(ApiResponse.error("Status is required"));
+        }
+        
+        switch (request.status().toUpperCase()) {
+            case "PUBLISHED":
+                catalogUseCases.publishProduct(id);
+                break;
+            case "DEACTIVATED":
+                catalogUseCases.deactivateProduct(id);
+                break;
+            case "ARCHIVED":
+                catalogUseCases.archiveProduct(id);
+                break;
+            default:
+                return ResponseEntity.badRequest().body(ApiResponse.error("Invalid status: " + request.status()));
+        }
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }
