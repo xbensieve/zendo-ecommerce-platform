@@ -80,3 +80,21 @@ server:
     threads:
       max: 200
     accept-count: 100
+
+bucket4j:
+  enabled: true
+  filters:
+    - cache-name: rate-limit-auth
+      url: /api/v1/auth/.*
+      rate-limits:
+        - bandwidths:
+            - capacity: 5
+              time: 1
+              unit: minutes
+    - cache-name: rate-limit-checkout
+      url: /api/v1/orders/checkout
+      rate-limits:
+        - bandwidths:
+            - capacity: 2
+              time: 1
+              unit: minutes

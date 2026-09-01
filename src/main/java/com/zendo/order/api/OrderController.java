@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 
 import java.util.Map;
 
@@ -27,14 +29,16 @@ public class OrderController {
         this.checkoutUseCases = checkoutUseCases;
     }
 
-    record CheckoutRequest(String idempotencyKey, String couponCode) {}
+    public record CheckoutRequest(
+        @NotBlank(message = "Idempotency Key is required")
+        String idempotencyKey, 
+        
+        String couponCode
+    ) {}
 
     @PostMapping("/checkout")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<ApiResponse<?>> checkout(@RequestBody CheckoutRequest request, @AuthenticationPrincipal AuthenticatedUser user) {
-        if (request.idempotencyKey() == null || request.idempotencyKey().isBlank()) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Idempotency Key is required"));
-        }
+    public ResponseEntity<ApiResponse<?>> checkout(@Valid @RequestBody CheckoutRequest request, @AuthenticationPrincipal AuthenticatedUser user) {
         
         String customerId = user.getUserId();
         ParentOrder order = checkoutUseCases.checkout(customerId, request.idempotencyKey(), request.couponCode());
