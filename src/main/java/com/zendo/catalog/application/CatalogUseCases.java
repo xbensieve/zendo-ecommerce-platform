@@ -20,6 +20,11 @@ public class CatalogUseCases {
         this.eventPublisher = eventPublisher;
     }
 
+    @Transactional(readOnly = true)
+    public java.util.Optional<Product> getProduct(String productId) {
+        return productRepository.findById(ProductId.fromString(productId));
+    }
+
     @Transactional
     public String createProduct(String vendorId, String name, String description) {
         Product product = Product.create(

@@ -54,6 +54,9 @@ public class OrderPaymentIntegrationTest {
     @Autowired
     private org.springframework.jdbc.core.simple.JdbcClient jdbcClient;
 
+    @Autowired
+    private com.zendo.shared.messaging.EventSigner eventSigner;
+
     @Test
     void shouldUpdateOrderWhenPaymentAuthorized() throws InterruptedException {
         UUID orderId = UUID.randomUUID();
@@ -90,7 +93,11 @@ public class OrderPaymentIntegrationTest {
         }
         """.formatted(UUID.randomUUID(), Instant.now().toString(), UUID.randomUUID(), orderId);
 
-        rabbitTemplate.convertAndSend("zendo.topic", "payment.events", jsonPayload);
+        String signature = eventSigner.sign(jsonPayload);
+        rabbitTemplate.convertAndSend("zendo.topic", "payment.events", jsonPayload, msg -> {
+            msg.getMessageProperties().setHeader("X-Event-Signature", signature);
+            return msg;
+        });
         
         // Wait for consumer
         Thread.sleep(1500);

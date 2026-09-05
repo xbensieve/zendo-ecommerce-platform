@@ -15,6 +15,7 @@ spring:
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
 
   rabbitmq:
     host: ${RABBITMQ_HOST}
@@ -22,12 +23,19 @@ spring:
     username: ${RABBITMQ_USER}
     password: ${RABBITMQ_PASSWORD}
 
+server:
+  forward-headers-strategy: framework
+
 zendo:
   security:
     jwt:
       secret: ${JWT_SECRET}
       issuer: ${JWT_ISSUER:zendo-production}
       expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+    event:
+      signing-secret: ${EVENT_SIGNING_SECRET}
+    rate-limiter:
+      trusted-proxies: ${TRUSTED_PROXIES:127.0.0.1,::1,10.0.0.0/8}
 
 management:
   endpoints:
@@ -37,3 +45,9 @@ management:
   endpoint:
     health:
       show-details: never # Secure health details in prod
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

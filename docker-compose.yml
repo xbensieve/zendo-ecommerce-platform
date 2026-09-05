@@ -19,12 +19,15 @@ services:
   redis:
     image: redis:7-alpine
     container_name: zendo-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-zendo_redis_password}
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-zendo_redis_password}
     ports:
       - "6379:6379"
     volumes:
       - zendo-redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-zendo_redis_password}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5

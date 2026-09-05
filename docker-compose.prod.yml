@@ -19,11 +19,13 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=5672
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
+      - EVENT_SIGNING_SECRET=${EVENT_SIGNING_SECRET}
     ports:
       - "8080:8080"
     restart: always
@@ -56,6 +58,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: zendo-redis-prod
+    command: redis-server --requirepass ${REDIS_PASSWORD}
     # DO NOT EXPOSE TO HOST IN PROD
     # ports:
     #   - "6379:6379"
@@ -63,7 +66,7 @@ services:
       - zendo-redis-prod-data:/data
     restart: always
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5

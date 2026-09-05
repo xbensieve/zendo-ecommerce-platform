@@ -5,6 +5,12 @@ import com.zendo.review.application.ReviewUseCases;
 import com.zendo.review.domain.ReviewId;
 import com.zendo.shared.security.AuthenticatedUser;
 import com.zendo.shared.api.ApiResponse;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,13 +31,26 @@ public class ReviewController {
         this.reviewQueryApi = reviewQueryApi;
     }
 
-    public record CreateReviewRequest(UUID orderItemId, UUID productId, int rating, String content) {}
+    public record CreateReviewRequest(
+        @NotNull(message = "Order item ID is required")
+        UUID orderItemId, 
+        
+        @NotNull(message = "Product ID is required")
+        UUID productId, 
+        
+        @Min(value = 1, message = "Rating must be at least 1")
+        @Max(value = 5, message = "Rating cannot exceed 5")
+        int rating, 
+        
+        @Size(max = 1000, message = "Content cannot exceed 1000 characters")
+        String content
+    ) {}
 
     @PostMapping("/reviews")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponse<?>> createReview(
             @AuthenticationPrincipal AuthenticatedUser user,
-            @RequestBody CreateReviewRequest request) {
+            @Valid @RequestBody CreateReviewRequest request) {
         try {
             ReviewId reviewId = reviewUseCases.createReview(
                     user.getUserId(),
@@ -50,14 +69,21 @@ public class ReviewController {
         }
     }
 
-    public record UpdateReviewRequest(int rating, String content) {}
+    public record UpdateReviewRequest(
+        @Min(value = 1, message = "Rating must be at least 1")
+        @Max(value = 5, message = "Rating cannot exceed 5")
+        int rating, 
+        
+        @Size(max = 1000, message = "Content cannot exceed 1000 characters")
+        String content
+    ) {}
 
     @PutMapping("/reviews/{reviewId}")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponse<?>> updateReview(
             @AuthenticationPrincipal AuthenticatedUser user,
             @PathVariable UUID reviewId,
-            @RequestBody UpdateReviewRequest request) {
+            @Valid @RequestBody UpdateReviewRequest request) {
         try {
             reviewUseCases.updateReview(user.getUserId(), new ReviewId(reviewId), request.rating(), request.content());
             return ResponseEntity.ok(ApiResponse.success(null));
@@ -68,14 +94,17 @@ public class ReviewController {
         }
     }
 
-    public record ModerateReviewRequest(String status) {}
+    public record ModerateReviewRequest(
+        @NotBlank(message = "Status is required")
+        String status
+    ) {}
 
     @PatchMapping("/reviews/{reviewId}/status")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<?>> moderateReview(
             @AuthenticationPrincipal AuthenticatedUser admin,
             @PathVariable UUID reviewId,
-            @RequestBody ModerateReviewRequest request) {
+            @Valid @RequestBody ModerateReviewRequest request) {
         try {
             if (request.status() == null) {
                 return ResponseEntity.badRequest().body(ApiResponse.error("Status is required"));

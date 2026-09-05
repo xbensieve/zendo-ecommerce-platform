@@ -26,7 +26,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -77,15 +76,18 @@ public class RegistrationIntegrationTest {
         );
 
         // 1. Register
-        ResponseEntity<Map> regResponse = restTemplate.postForEntity("/auth/register", request, Map.class);
+        ResponseEntity<Map> regResponse = restTemplate.postForEntity("/api/v1/auth/register", request, Map.class);
         
         assertThat(regResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(regResponse.getBody()).isNotNull();
+        Map<?, ?> body = regResponse.getBody();
+        assertThat(body).isNotNull();
+        Map<?, ?> data = (Map<?, ?>) body.get("data");
+        assertThat(data).isNotNull();
         
-        String userId = (String) regResponse.getBody().get("userId");
+        String userId = (String) data.get("userId");
         assertThat(userId).isNotBlank();
-        assertThat(regResponse.getBody().get("email")).isEqualTo(email);
-        assertThat(regResponse.getBody().get("role")).isEqualTo("CUSTOMER");
+        assertThat(data.get("email")).isEqualTo(email);
+        assertThat(data.get("role")).isEqualTo("CUSTOMER");
 
         // Verify Data presence
         assertThat(userRepository.findByEmail(email)).isPresent();
@@ -93,11 +95,12 @@ public class RegistrationIntegrationTest {
 
         // 2. Login
         Map<String, String> loginRequest = Map.of("email", email, "password", "securePassword123!");
-        ResponseEntity<Map> loginResponse = restTemplate.postForEntity("/auth/login", loginRequest, Map.class);
+        ResponseEntity<Map> loginResponse = restTemplate.postForEntity("/api/v1/auth/login", loginRequest, Map.class);
         
         assertThat(loginResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(loginResponse.getBody().get("token")).isNotNull();
-        assertThat(loginResponse.getBody().get("role")).isEqualTo("CUSTOMER");
+        Map<?, ?> loginData = (Map<?, ?>) loginResponse.getBody().get("data");
+        assertThat(loginData.get("token")).isNotNull();
+        assertThat(loginData.get("role")).isEqualTo("CUSTOMER");
     }
 
     @Test
@@ -111,11 +114,11 @@ public class RegistrationIntegrationTest {
         );
 
         // First registration
-        ResponseEntity<Map> res1 = restTemplate.postForEntity("/auth/register", request, Map.class);
+        ResponseEntity<Map> res1 = restTemplate.postForEntity("/api/v1/auth/register", request, Map.class);
         assertThat(res1.getStatusCode()).isEqualTo(HttpStatus.OK);
 
         // Second registration
-        ResponseEntity<String> res2 = restTemplate.postForEntity("/auth/register", request, String.class);
+        ResponseEntity<String> res2 = restTemplate.postForEntity("/api/v1/auth/register", request, String.class);
         assertThat(res2.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(res2.getBody()).contains("already exists");
     }
@@ -129,7 +132,7 @@ public class RegistrationIntegrationTest {
                 "lastName", "Doe"
         );
 
-        ResponseEntity<String> res = restTemplate.postForEntity("/auth/register", request, String.class);
+        ResponseEntity<String> res = restTemplate.postForEntity("/api/v1/auth/register", request, String.class);
         assertThat(res.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
@@ -144,11 +147,12 @@ public class RegistrationIntegrationTest {
                 "role", "ADMIN" // Attempt to inject admin role
         );
 
-        ResponseEntity<Map> regResponse = restTemplate.postForEntity("/auth/register", request, Map.class);
+        ResponseEntity<Map> regResponse = restTemplate.postForEntity("/api/v1/auth/register", request, Map.class);
         
         assertThat(regResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Map<?, ?> data = (Map<?, ?>) regResponse.getBody().get("data");
         // The server must ignore the injected role and assign CUSTOMER
-        assertThat(regResponse.getBody().get("role")).isEqualTo("CUSTOMER");
+        assertThat(data.get("role")).isEqualTo("CUSTOMER");
     }
 
     @Test
@@ -166,7 +170,7 @@ public class RegistrationIntegrationTest {
         List<Callable<ResponseEntity<String>>> tasks = new ArrayList<>();
 
         for (int i = 0; i < threadCount; i++) {
-            tasks.add(() -> restTemplate.postForEntity("/auth/register", request, String.class));
+            tasks.add(() -> restTemplate.postForEntity("/api/v1/auth/register", request, String.class));
         }
 
         List<Future<ResponseEntity<String>>> results = executor.invokeAll(tasks);
@@ -192,5 +196,32 @@ public class RegistrationIntegrationTest {
         // Verify no partial state
         long userCount = userRepository.findByEmail(email).stream().count();
         assertThat(userCount).isEqualTo(1);
+    }
+
+    @Test
+    void shouldRejectPasswordShorterThanTenCharacters() {
+        Map<String, String> request = Map.of(
+                "email", "shortpass_" + UUID.randomUUID() + "@example.com",
+                "password", "Short9!",
+                "firstName", "John",
+                "lastName", "Doe"
+        );
+
+        ResponseEntity<String> res = restTemplate.postForEntity("/api/v1/auth/register", request, String.class);
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void shouldRejectCommonLeakedPassword() {
+        Map<String, String> request = Map.of(
+                "email", "commonpass_" + UUID.randomUUID() + "@example.com",
+                "password", "password1234",
+                "firstName", "John",
+                "lastName", "Doe"
+        );
+
+        ResponseEntity<String> res = restTemplate.postForEntity("/api/v1/auth/register", request, String.class);
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(res.getBody()).contains("easily guessable");
     }
 }

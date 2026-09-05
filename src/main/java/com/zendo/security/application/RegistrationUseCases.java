@@ -1,6 +1,7 @@
 package com.zendo.security.application;
 
 import com.zendo.identity.api.IdentityCommandApi;
+import com.zendo.security.domain.PasswordPolicy;
 import com.zendo.security.domain.Role;
 import com.zendo.security.domain.UserCredentials;
 import com.zendo.security.domain.UserCredentialsRepository;
@@ -30,16 +31,16 @@ public class RegistrationUseCases {
         if (email == null || email.isBlank()) {
             throw new IllegalArgumentException("Email is required");
         }
-        if (rawPassword == null || rawPassword.isBlank()) {
-            throw new IllegalArgumentException("Password is required");
-        }
+        PasswordPolicy.validate(rawPassword);
         if (firstName == null || firstName.isBlank() || lastName == null || lastName.isBlank()) {
             throw new IllegalArgumentException("First name and last name are required");
         }
 
+        String normalizedEmail = email.trim().toLowerCase(java.util.Locale.ROOT);
+
         try {
             // 1. Provision User in Identity
-            String userId = identityCommandApi.createUser(email, firstName, lastName);
+            String userId = identityCommandApi.createUser(normalizedEmail, firstName.trim(), lastName.trim());
 
             // 2. Hash Password
             String passwordHash = passwordEncoder.encode(rawPassword);

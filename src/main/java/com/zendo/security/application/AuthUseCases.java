@@ -5,11 +5,16 @@ import com.zendo.security.domain.UserCredentials;
 import com.zendo.security.domain.UserCredentialsRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
+import java.util.Locale;
 
 @Service
 public class AuthUseCases {
+
+    // Pre-computed BCrypt hash of an arbitrary string for constant-time comparison on nonexistent accounts
+    private static final String DUMMY_HASH = "$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5s9jQfKvh71Mlh.tS5w71f5Kvh71M";
 
     private final IdentityQueryApi identityQueryApi;
     private final UserCredentialsRepository credentialsRepository;
@@ -28,28 +33,64 @@ public class AuthUseCases {
     }
 
     public AuthResult login(String email, String rawPassword) {
-        // 1. Fetch user from Identity to check status and get stable UserId
-        IdentityQueryApi.UserSummary user = identityQueryApi.getUserByEmail(email)
-                .orElseThrow(() -> new AuthException("Invalid credentials"));
+        if (email == null || rawPassword == null) {
+            throw new AuthException("Invalid credentials");
+        }
+
+        String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
+
+        // 1. Fetch user from Identity
+        var userOpt = identityQueryApi.getUserByEmail(normalizedEmail);
+        if (userOpt.isEmpty()) {
+            // Mitigate timing attack by executing dummy password comparison
+            passwordEncoder.matches(rawPassword, DUMMY_HASH);
+            throw new AuthException("Invalid credentials");
+        }
+
+        IdentityQueryApi.UserSummary user = userOpt.get();
 
         // 2. Check user status
         if ("SUSPENDED".equals(user.status()) || "DEACTIVATED".equals(user.status())) {
-            throw new AuthException("User is not active");
+            throw new AuthException("Account is suspended or deactivated");
         }
 
         // 3. Fetch credentials
         UserCredentials credentials = credentialsRepository.findByUserId(user.id())
-                .orElseThrow(() -> new AuthException("Invalid credentials"));
+                .orElse(null);
+
+        if (credentials == null) {
+            passwordEncoder.matches(rawPassword, DUMMY_HASH);
+            throw new AuthException("Invalid credentials");
+        }
 
         // 4. Verify password
         if (!passwordEncoder.matches(rawPassword, credentials.getPasswordHash())) {
             throw new AuthException("Invalid credentials");
         }
 
-        // 5. Generate token
-        String token = tokenService.generateToken(credentials.getUserId(), Collections.singletonList(credentials.getRole().name()));
+        // 5. Generate token with securityVersion
+        String token = tokenService.generateToken(
+                credentials.getUserId(), 
+                Collections.singletonList(credentials.getRole().name()),
+                credentials.getSecurityVersion()
+        );
 
         return new AuthResult(token, credentials.getUserId(), credentials.getRole().name());
+    }
+
+    @Transactional
+    public void logout(String userId) {
+        if (userId == null || userId.isBlank()) {
+            return;
+        }
+        credentialsRepository.findByUserId(userId).ifPresent(creds -> {
+            credentialsRepository.save(creds.withIncrementedSecurityVersion());
+        });
+    }
+
+    @Transactional
+    public void revokeTokens(String userId) {
+        logout(userId);
     }
 
     public record AuthResult(String token, String userId, String role) {}

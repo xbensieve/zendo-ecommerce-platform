@@ -14,7 +14,8 @@ public interface OrderQueryApi {
      *
      * @param customerId the ID of the customer attempting to review
      * @param orderItemId the UUID of the specific order item
-     * @return true if the customer purchased the item and the order is paid
+     * @param productId the UUID of the target product
+     * @return true if the customer purchased the item for the specific product and the order is paid
      */
-    boolean isEligibleForReview(String customerId, UUID orderItemId);
+    boolean isEligibleForReview(String customerId, UUID orderItemId, UUID productId);
 }

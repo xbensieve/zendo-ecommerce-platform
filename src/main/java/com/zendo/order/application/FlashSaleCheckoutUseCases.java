@@ -37,13 +37,30 @@ public class FlashSaleCheckoutUseCases {
     public ParentOrder checkoutFlashSale(String customerId, String idempotencyKey, UUID flashSaleId, int quantity) {
         meterRegistry.counter("flash_sale_purchase_attempts_total").increment();
 
-        // 1. Idempotency Check
-        if (!orderRepository.checkAndSaveIdempotencyKey(idempotencyKey)) {
+        if (quantity <= 0) {
+            meterRegistry.counter("flash_sale_purchase_rejected_total", "reason", "INVALID_QUANTITY").increment();
+            throw new OrderException("Flash sale purchase quantity must be positive");
+        }
+        if (quantity > 10) {
+            meterRegistry.counter("flash_sale_purchase_rejected_total", "reason", "EXCEEDED_LIMIT").increment();
+            throw new OrderException("Flash sale purchase quantity exceeds maximum allowed limit per order");
+        }
+
+        // 1. Idempotency Check (Scoped to customer to prevent cross-user key collision)
+        String scopedIdempotencyKey = "fs:" + customerId + ":" + idempotencyKey;
+        if (!orderRepository.checkAndSaveIdempotencyKey(scopedIdempotencyKey)) {
             meterRegistry.counter("flash_sale_purchase_rejected_total", "reason", "DUPLICATE_REQUEST").increment();
             throw new OrderException("Duplicate checkout request for idempotency key: " + idempotencyKey);
         }
 
-        // 2. Fetch Flash Sale Details (implicitly checks if it exists)
+        // 2. Enforce One Flash Sale Purchase per Customer Limit
+        String customerPurchaseKey = "fs_limit:" + flashSaleId + ":" + customerId;
+        if (!orderRepository.checkAndSaveIdempotencyKey(customerPurchaseKey)) {
+            meterRegistry.counter("flash_sale_purchase_rejected_total", "reason", "CUSTOMER_LIMIT_REACHED").increment();
+            throw new OrderException("Customer has already participated in this flash sale");
+        }
+
+        // 3. Fetch Flash Sale Details (implicitly checks if it exists)
         PromotionApi.FlashSaleDetails flashSaleDetails = promotionApi.getFlashSale(flashSaleId)
                 .orElseThrow(() -> {
                     meterRegistry.counter("flash_sale_purchase_rejected_total", "reason", "NOT_FOUND").increment();

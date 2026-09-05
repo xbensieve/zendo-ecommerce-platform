@@ -4,9 +4,17 @@ spring:
       on-profile: test
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:zendo_test}?currentSchema=public
-    username: ${DB_USER:test}
-    password: ${DB_PASSWORD:test}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
   data:
     redis:
@@ -19,9 +27,28 @@ spring:
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASSWORD:guest}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
 zendo:
   security:
     jwt:
       secret: test-secret-key-for-unit-tests
       issuer: zendo-test
       expiration-ms: 3600000
+    event:
+      signing-secret: test-event-signing-key-32-chars-minimum!
+    rate-limiter:
+      enabled: false
+
+

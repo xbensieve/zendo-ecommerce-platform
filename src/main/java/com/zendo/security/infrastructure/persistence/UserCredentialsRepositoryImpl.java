@@ -19,11 +19,16 @@ public class UserCredentialsRepositoryImpl implements UserCredentialsRepository 
     @Override
     public Optional<UserCredentials> findByUserId(String userId) {
         return jpaRepository.findById(userId)
-                .map(entity -> new UserCredentials(entity.getUserId(), entity.getPasswordHash(), Role.valueOf(entity.getRole())));
+                .map(entity -> new UserCredentials(entity.getUserId(), entity.getPasswordHash(), Role.valueOf(entity.getRole()), entity.getSecurityVersion()));
     }
 
     @Override
     public void save(UserCredentials credentials) {
-        jpaRepository.saveAndFlush(new UserCredentialsJpaEntity(credentials.getUserId(), credentials.getPasswordHash(), credentials.getRole().name()));
+        jpaRepository.saveAndFlush(new UserCredentialsJpaEntity(
+                credentials.getUserId(), 
+                credentials.getPasswordHash(), 
+                credentials.getRole().name(),
+                credentials.getSecurityVersion()
+        ));
     }
 }

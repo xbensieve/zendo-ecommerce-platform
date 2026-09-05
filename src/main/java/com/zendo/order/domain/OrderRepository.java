@@ -7,5 +7,6 @@ public interface OrderRepository {
     void save(ParentOrder order);
     Optional<ParentOrder> findById(UUID id);
     boolean checkAndSaveIdempotencyKey(String idempotencyKey);
-    boolean hasPaidOrderItem(String customerId, UUID orderItemId);
+    boolean checkAndSaveIdempotencyKey(String idempotencyKey, String payloadHash);
+    boolean hasPaidOrderItem(String customerId, UUID orderItemId, UUID productId);
 }

@@ -24,9 +24,11 @@ import java.util.Map;
 public class OrderController {
 
     private final CheckoutUseCases checkoutUseCases;
+    private final com.zendo.order.application.OrderUseCases orderUseCases;
 
-    public OrderController(CheckoutUseCases checkoutUseCases) {
+    public OrderController(CheckoutUseCases checkoutUseCases, com.zendo.order.application.OrderUseCases orderUseCases) {
         this.checkoutUseCases = checkoutUseCases;
+        this.orderUseCases = orderUseCases;
     }
 
     public record CheckoutRequest(
@@ -45,6 +47,25 @@ public class OrderController {
         
         return ResponseEntity.ok(ApiResponse.success(Map.of(
                 "orderId", order.getId().toString(),
+                "status", order.getStatus().name(),
+                "totalAmount", order.getTotalAmount(),
+                "currency", order.getCurrency()
+        )));
+    }
+
+    @org.springframework.web.bind.annotation.GetMapping("/{orderId}")
+    @PreAuthorize("hasRole('CUSTOMER') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<?>> getOrder(
+            @org.springframework.web.bind.annotation.PathVariable java.util.UUID orderId,
+            @AuthenticationPrincipal AuthenticatedUser user) {
+        ParentOrder order = orderUseCases.getOrder(orderId);
+        boolean isAdmin = user.getRoles().contains("ADMIN");
+        if (!isAdmin && !order.getCustomerId().equals(user.getUserId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Access denied: insufficient permissions");
+        }
+        return ResponseEntity.ok(ApiResponse.success(Map.of(
+                "orderId", order.getId().toString(),
+                "customerId", order.getCustomerId(),
                 "status", order.getStatus().name(),
                 "totalAmount", order.getTotalAmount(),
                 "currency", order.getCurrency()

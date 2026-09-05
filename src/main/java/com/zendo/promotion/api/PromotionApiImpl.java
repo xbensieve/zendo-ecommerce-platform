@@ -17,6 +17,7 @@ public class PromotionApiImpl implements PromotionApi {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public void redeemCoupon(String couponCode) {
         if (couponCode == null || couponCode.isBlank()) {
             return;

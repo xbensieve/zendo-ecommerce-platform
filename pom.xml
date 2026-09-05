@@ -143,7 +143,7 @@
         <dependency>
             <groupId>com.auth0</groupId>
             <artifactId>java-jwt</artifactId>
-            <version>4.4.0</version>
+            <version>4.6.0</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.security</groupId>
@@ -165,11 +165,18 @@
             <version>2.8.4</version>
         </dependency>
 
-        <!-- Rate Limiting -->
+        <!-- Rate Limiting & Cache Provider -->
         <dependency>
-            <groupId>com.giffing.bucket4j.spring.boot.starter</groupId>
-            <artifactId>bucket4j-spring-boot-starter</artifactId>
-            <version>0.12.7</version>
+            <groupId>javax.cache</groupId>
+            <artifactId>cache-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>jcache</artifactId>
         </dependency>
     </dependencies>
 

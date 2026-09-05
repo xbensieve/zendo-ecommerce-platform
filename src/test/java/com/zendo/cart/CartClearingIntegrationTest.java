@@ -60,6 +60,9 @@ public class CartClearingIntegrationTest {
     @Autowired
     private RabbitTemplate rabbitTemplate;
 
+    @Autowired
+    private com.zendo.shared.messaging.EventSigner eventSigner;
+
     @Test
     void shouldClearCartWhenOrderPlacedEventReceived() throws InterruptedException {
         String customerId = "customer-" + UUID.randomUUID().toString();
@@ -84,7 +87,11 @@ public class CartClearingIntegrationTest {
         }
         """.formatted(UUID.randomUUID(), Instant.now().toString(), UUID.randomUUID(), customerId, cart.getId().toString());
 
-        rabbitTemplate.convertAndSend("zendo.topic", "order.events", jsonPayload);
+        String signature = eventSigner.sign(jsonPayload);
+        rabbitTemplate.convertAndSend("zendo.topic", "order.events", jsonPayload, msg -> {
+            msg.getMessageProperties().setHeader("X-Event-Signature", signature);
+            return msg;
+        });
         
         // 3. Wait for consumer to process
         Thread.sleep(1500);

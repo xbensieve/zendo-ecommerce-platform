@@ -52,19 +52,14 @@ public class FlashSaleHttpLoadTest {
     @LocalServerPort
     private int port;
 
-    @Container
-    static org.testcontainers.containers.RabbitMQContainer rabbitMQContainer = new org.testcontainers.containers.RabbitMQContainer(org.testcontainers.utility.DockerImageName.parse("rabbitmq:3.12-management"));
-
-    @org.springframework.test.context.DynamicPropertySource
-    static void configureProperties(org.springframework.test.context.DynamicPropertyRegistry registry) {
-        registry.add("spring.rabbitmq.host", rabbitMQContainer::getHost);
-        registry.add("spring.rabbitmq.port", rabbitMQContainer::getAmqpPort);
-        registry.add("spring.rabbitmq.username", rabbitMQContainer::getAdminUsername);
-        registry.add("spring.rabbitmq.password", rabbitMQContainer::getAdminPassword);
-    }
-
     @MockBean
     private CatalogQueryApi catalogQueryApi;
+
+    @MockBean
+    private com.zendo.identity.api.IdentityQueryApi identityQueryApi;
+
+    @MockBean
+    private com.zendo.security.domain.UserCredentialsRepository credentialsRepository;
 
     @Autowired
     private FlashSaleUseCases flashSaleUseCases;
@@ -108,6 +103,16 @@ public class FlashSaleHttpLoadTest {
                 java.util.Optional.of(new CatalogQueryApi.ProductVariantInfo(productId.toString(), vendorId.toString(), sku, "Test Product", new BigDecimal("10.00"), "USD"))
         );
         when(catalogQueryApi.isProductVariantActive(anyString(), anyString())).thenReturn(true);
+        when(identityQueryApi.getUserById(anyString())).thenAnswer(inv ->
+                java.util.Optional.of(new com.zendo.identity.api.IdentityQueryApi.UserSummary(
+                        inv.getArgument(0), inv.getArgument(0) + "@example.com", "Test", "User", "ACTIVE"
+                ))
+        );
+        when(credentialsRepository.findByUserId(anyString())).thenAnswer(inv ->
+                java.util.Optional.of(new com.zendo.security.domain.UserCredentials(
+                        inv.getArgument(0), "dummy_hash", com.zendo.security.domain.Role.CUSTOMER, 1
+                ))
+        );
 
         inventoryUseCases.createInventoryItem(vendorId.toString(), sku);
         inventoryUseCases.adjustInventory(productId, physicalStock, "init");
@@ -132,12 +137,12 @@ public class FlashSaleHttpLoadTest {
         AtomicInteger reject4xxCount = new AtomicInteger(0);
         AtomicInteger reject5xxCount = new AtomicInteger(0);
 
-        String url = "http://localhost:" + port + "/orders/flash-sales/" + flashSale.getId() + "/purchase";
+        String url = "http://localhost:" + port + "/api/v1/orders/flash-sales/" + flashSale.getId() + "/purchase";
         
         for (int i = 0; i < concurrentClients; i++) {
             final String customerId = "cust-load-" + i;
             final String idempotencyKey = UUID.randomUUID().toString();
-            final String token = jwtService.generateToken(customerId, List.of("CUSTOMER"));
+            final String token = jwtService.generateToken(customerId, List.of("CUSTOMER"), 1);
 
             tasks.add(() -> {
                 HttpHeaders headers = new HttpHeaders();

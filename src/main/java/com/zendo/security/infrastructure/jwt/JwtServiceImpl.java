@@ -36,11 +36,17 @@ public class JwtServiceImpl implements JwtService {
 
     @Override
     public String generateToken(String userId, Collection<String> roles) {
+        return generateToken(userId, roles, 1);
+    }
+
+    @Override
+    public String generateToken(String userId, Collection<String> roles, int securityVersion) {
         List<String> roleNames = roles.stream().collect(Collectors.toList());
         return JWT.create()
                 .withIssuer(issuer)
                 .withSubject(userId)
                 .withClaim("roles", roleNames)
+                .withClaim("securityVersion", securityVersion)
                 .withIssuedAt(new Date())
                 .withExpiresAt(new Date(System.currentTimeMillis() + expirationMillis))
                 .sign(algorithm);
@@ -54,6 +60,12 @@ public class JwtServiceImpl implements JwtService {
     @Override
     public Collection<String> extractRoles(String token) {
         return decode(token).getClaim("roles").asList(String.class);
+    }
+
+    @Override
+    public Integer extractSecurityVersion(String token) {
+        var claim = decode(token).getClaim("securityVersion");
+        return claim.isNull() ? null : claim.asInt();
     }
 
     @Override

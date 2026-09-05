@@ -22,16 +22,25 @@ public class NotificationPaymentEventConsumer {
     private static final Logger log = LoggerFactory.getLogger(NotificationPaymentEventConsumer.class);
     private final NotificationUseCases notificationUseCases;
     private final ObjectMapper objectMapper;
+    private final com.zendo.shared.messaging.EventSigner eventSigner;
 
     public NotificationPaymentEventConsumer(NotificationUseCases notificationUseCases,
-                                             ObjectMapper objectMapper) {
+                                             ObjectMapper objectMapper,
+                                             com.zendo.shared.messaging.EventSigner eventSigner) {
         this.notificationUseCases = notificationUseCases;
         this.objectMapper = objectMapper;
+        this.eventSigner = eventSigner;
     }
 
     @RabbitListener(queues = "notification.payment.events.queue")
-    public void handle(String message) {
+    public void handle(String message, @org.springframework.messaging.handler.annotation.Header(value = "X-Event-Signature", required = false) String signature) {
         try {
+            // 1. Authenticity verification
+            if (signature == null || !eventSigner.verify(message, signature)) {
+                log.warn("SECURITY ALERT: Untrusted or unsigned RabbitMQ payment event detected in Notification context! Discarding message.");
+                throw new org.springframework.amqp.AmqpRejectAndDontRequeueException("Untrusted or unsigned event signature");
+            }
+
             JsonNode event = objectMapper.readTree(message);
             String eventType = event.get("eventType").asText();
             String eventId = event.get("eventId").asText();
@@ -65,8 +74,10 @@ public class NotificationPaymentEventConsumer {
                 notificationUseCases.createAndSendNotification(
                         customerId, NotificationType.PAYMENT_FAILED, title, msg, eventId);
             }
+        } catch (org.springframework.amqp.AmqpRejectAndDontRequeueException e) {
+            throw e;
         } catch (com.fasterxml.jackson.core.JsonProcessingException | IllegalArgumentException e) {
-            log.error("Poison message detected in Notification context (Payment): {}", message, e);
+            log.error("Poison message detected in Notification context (Payment): {}", com.zendo.shared.messaging.EventSigner.sanitizeForLog(message), e);
             throw new org.springframework.amqp.AmqpRejectAndDontRequeueException("Malformed message", e);
         } catch (Exception e) {
             log.error("Failed to process payment event in Notification context", e);

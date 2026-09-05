@@ -12,6 +12,9 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+import com.zendo.shared.security.AuthenticatedUser;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
@@ -27,9 +30,11 @@ public class AuthController {
     public record LoginRequest(
         @NotBlank(message = "Email is required")
         @Email(message = "Invalid email format")
+        @Size(max = 255, message = "Email cannot exceed 255 characters")
         String email, 
         
         @NotBlank(message = "Password is required")
+        @Size(max = 128, message = "Password cannot exceed 128 characters")
         String password
     ) {}
     
@@ -49,16 +54,19 @@ public class AuthController {
     public record RegistrationRequest(
         @NotBlank(message = "Email is required")
         @Email(message = "Invalid email format")
+        @Size(max = 255, message = "Email cannot exceed 255 characters")
         String email, 
         
         @NotBlank(message = "Password is required")
-        @Size(min = 8, message = "Password must be at least 8 characters")
+        @Size(min = 10, max = 128, message = "Password must be between 10 and 128 characters")
         String password, 
         
         @NotBlank(message = "First name is required")
+        @Size(max = 100, message = "First name cannot exceed 100 characters")
         String firstName, 
         
         @NotBlank(message = "Last name is required")
+        @Size(max = 100, message = "Last name cannot exceed 100 characters")
         String lastName
     ) {}
     public record RegistrationResponse(String userId, String email, String role) {}
@@ -73,5 +81,13 @@ public class AuthController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
         }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(@AuthenticationPrincipal AuthenticatedUser user) {
+        if (user != null) {
+            authUseCases.logout(user.getUserId());
+        }
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }

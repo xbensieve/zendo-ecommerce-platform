@@ -51,8 +51,19 @@ public class CheckoutUseCases {
     public ParentOrder checkout(String customerId, String idempotencyKey, String couponCode) {
         meterRegistry.counter("checkout_attempts_total").increment();
         
-        // 1. Idempotency Check
-        if (!orderRepository.checkAndSaveIdempotencyKey(idempotencyKey)) {
+        // 1. Idempotency Check (Scoped to customer with payload hash)
+        String scopedKey = customerId + ":" + idempotencyKey;
+        String payloadToHash = customerId + ":" + (couponCode != null ? couponCode : "");
+        String payloadHash;
+        try {
+            byte[] hash = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(payloadToHash.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            payloadHash = java.util.HexFormat.of().formatHex(hash);
+        } catch (Exception e) {
+            payloadHash = String.valueOf(payloadToHash.hashCode());
+        }
+
+        if (!orderRepository.checkAndSaveIdempotencyKey(scopedKey, payloadHash)) {
             meterRegistry.counter("checkout_rejected_total", "reason", "DUPLICATE_REQUEST").increment();
             throw new OrderException("Duplicate checkout request for idempotency key: " + idempotencyKey);
         }
@@ -68,6 +79,9 @@ public class CheckoutUseCases {
             meterRegistry.counter("checkout_rejected_total", "reason", "CART_EMPTY").increment();
             throw new OrderException("Cannot checkout an empty cart");
         }
+
+        // Atomically transition cart to CHECKED_OUT within the checkout transaction
+        cartUseCases.checkoutCart(customerId);
 
         UUID parentOrderId = UUID.randomUUID();
         

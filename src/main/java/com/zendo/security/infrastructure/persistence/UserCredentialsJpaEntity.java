@@ -19,12 +19,20 @@ public class UserCredentialsJpaEntity {
     @Column(name = "role", nullable = false)
     private String role;
 
+    @Column(name = "security_version", nullable = false)
+    private int securityVersion;
+
     protected UserCredentialsJpaEntity() {}
 
     public UserCredentialsJpaEntity(String userId, String passwordHash, String role) {
+        this(userId, passwordHash, role, 1);
+    }
+
+    public UserCredentialsJpaEntity(String userId, String passwordHash, String role, int securityVersion) {
         this.userId = userId;
         this.passwordHash = passwordHash;
         this.role = role;
+        this.securityVersion = securityVersion;
     }
 
     public String getUserId() {
@@ -37,5 +45,9 @@ public class UserCredentialsJpaEntity {
 
     public String getRole() {
         return role;
+    }
+
+    public int getSecurityVersion() {
+        return securityVersion;
     }
 }

@@ -12,6 +12,6 @@ import java.util.UUID;
 public interface SpringDataFlashSaleRepository extends JpaRepository<FlashSaleEntity, UUID> {
     
     @Modifying(clearAutomatically = true)
-    @Query("UPDATE FlashSaleEntity f SET f.availableQuantity = f.availableQuantity - :qty, f.updatedAt = CURRENT_TIMESTAMP WHERE f.id = :id AND f.availableQuantity >= :qty AND f.status = 'ACTIVE' AND CURRENT_TIMESTAMP BETWEEN f.startTime AND f.endTime")
+    @Query("UPDATE FlashSaleEntity f SET f.availableQuantity = f.availableQuantity - :qty, f.updatedAt = CURRENT_TIMESTAMP WHERE f.id = :id AND :qty > 0 AND f.availableQuantity >= :qty AND f.status = 'ACTIVE' AND CURRENT_TIMESTAMP BETWEEN f.startTime AND f.endTime")
     int atomicReserveAllocation(@Param("id") UUID id, @Param("qty") int qty);
 }

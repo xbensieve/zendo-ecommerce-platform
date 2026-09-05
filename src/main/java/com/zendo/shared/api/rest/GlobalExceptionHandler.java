@@ -21,6 +21,45 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    private String resolveTraceId() {
+        String traceId = MDC.get("traceId");
+        if (traceId == null || traceId.isBlank()) {
+            traceId = MDC.get("correlationId");
+        }
+        return traceId != null ? traceId : java.util.UUID.randomUUID().toString();
+    }
+
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<Object> handleRuntimeException(RuntimeException ex, WebRequest request) {
+        String pkg = ex.getClass().getPackage() != null ? ex.getClass().getPackage().getName() : "";
+        String simpleName = ex.getClass().getSimpleName();
+        if (pkg.startsWith("com.zendo.") && simpleName.endsWith("Exception") && !simpleName.contains("Security")) {
+            log.warn("Domain business rule violation [{}]: {}", simpleName, ex.getMessage());
+
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("timestamp", Instant.now());
+            body.put("status", HttpStatus.BAD_REQUEST.value());
+            body.put("error", "Bad Request");
+            body.put("message", ex.getMessage());
+            body.put("traceId", resolveTraceId());
+
+            return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
+        }
+        return handleAllExceptions(ex, request);
+    }
+
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<Object> handleNoResourceFoundException(org.springframework.web.servlet.resource.NoResourceFoundException ex, WebRequest request) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", Instant.now());
+        body.put("status", HttpStatus.NOT_FOUND.value());
+        body.put("error", "Not Found");
+        body.put("message", ex.getMessage());
+        body.put("traceId", resolveTraceId());
+
+        return new ResponseEntity<>(body, HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Object> handleAllExceptions(Exception ex, WebRequest request) {
         log.error("Unhandled exception: {}", ex.getMessage(), ex);
@@ -29,14 +68,53 @@ public class GlobalExceptionHandler {
         body.put("timestamp", Instant.now());
         body.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
         body.put("error", "Internal Server Error");
-        body.put("traceId", MDC.get("traceId")); // Provide traceId back to client for support
+        body.put("traceId", resolveTraceId());
 
         return new ResponseEntity<>(body, HttpStatus.INTERNAL_SERVER_ERROR);
     }
     
-    // We could add more specific domain exception handlers here (e.g. OrderException, InventoryException)
-    // mapping to 400 or 409 depending on the case. For this MVP, we capture the unhandled ones mostly.
-    
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<Object> handleAccessDeniedException(org.springframework.security.access.AccessDeniedException ex, WebRequest request) {
+        log.warn("Access denied: {}", ex.getMessage());
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", Instant.now());
+        body.put("status", HttpStatus.FORBIDDEN.value());
+        body.put("error", "Forbidden");
+        body.put("message", "Access denied: insufficient permissions");
+        body.put("traceId", resolveTraceId());
+
+        return new ResponseEntity<>(body, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(org.springframework.security.core.AuthenticationException.class)
+    public ResponseEntity<Object> handleAuthenticationException(org.springframework.security.core.AuthenticationException ex, WebRequest request) {
+        log.warn("Authentication failure: {}", ex.getMessage());
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", Instant.now());
+        body.put("status", HttpStatus.UNAUTHORIZED.value());
+        body.put("error", "Unauthorized");
+        body.put("message", "Full authentication is required to access this resource");
+        body.put("traceId", resolveTraceId());
+
+        return new ResponseEntity<>(body, HttpStatus.UNAUTHORIZED);
+    }
+
+    @ExceptionHandler(org.springframework.dao.OptimisticLockingFailureException.class)
+    public ResponseEntity<Object> handleOptimisticLockingFailure(org.springframework.dao.OptimisticLockingFailureException ex, WebRequest request) {
+        log.warn("Optimistic locking conflict: {}", ex.getMessage());
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", Instant.now());
+        body.put("status", HttpStatus.CONFLICT.value());
+        body.put("error", "Conflict");
+        body.put("message", "The resource was modified concurrently. Please retry your request.");
+        body.put("traceId", resolveTraceId());
+
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Object> handleIllegalArgumentException(IllegalArgumentException ex, WebRequest request) {
         log.warn("Illegal argument: {}", ex.getMessage());

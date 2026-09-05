@@ -51,8 +51,16 @@ public class InventoryUseCases {
         item.getDomainEvents().forEach(eventPublisher::publish);
     }
 
+    @Transactional(readOnly = true)
+    public java.util.Optional<InventoryItem> getInventoryItem(UUID productId) {
+        return inventoryRepository.findByProductId(productId);
+    }
+
     @Transactional
     public void adjustInventory(UUID productId, int newOnHandQty, String referenceId) {
+        if (newOnHandQty < 0) {
+            throw new InventoryException("Stock quantity cannot be negative");
+        }
         InventoryItem item = inventoryRepository.findByProductId(productId)
                 .orElseThrow(() -> new InventoryException("Inventory item not found"));
         

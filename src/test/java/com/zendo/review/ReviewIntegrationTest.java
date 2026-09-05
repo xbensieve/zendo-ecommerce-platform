@@ -70,21 +70,14 @@ public class ReviewIntegrationTest {
 
     private String customerToken;
     private String customerId;
-    
-    private String adminToken;
-    private String adminId;
 
     @BeforeEach
     void setup() {
         // Create Customer
         String custEmail = "customer_" + UUID.randomUUID() + "@example.com";
-        var custResult = registrationUseCases.register(custEmail, "pass123", "Customer", "User");
+        var custResult = registrationUseCases.register(custEmail, "SecurePass123!", "Customer", "User");
         customerId = custResult.userId();
-        customerToken = authUseCases.login(custEmail, "pass123").token();
-
-        // Create Admin (requires DB update to change role, but for now we'll just mock it or assume we can create one)
-        // Since we don't have a direct way to register an ADMIN, we can use a small hack or just mock security for admin tests.
-        // For this test, we can use a direct SQL update if necessary, or just focus on CUSTOMER for now.
+        customerToken = authUseCases.login(custEmail, "SecurePass123!").token();
     }
 
     private HttpHeaders getHeaders(String token) {
@@ -99,12 +92,12 @@ public class ReviewIntegrationTest {
         UUID orderItemId = UUID.randomUUID();
         UUID productId = UUID.randomUUID();
         
-        when(orderQueryApi.isEligibleForReview(eq(customerId), eq(orderItemId))).thenReturn(true);
+        when(orderQueryApi.isEligibleForReview(eq(customerId), eq(orderItemId), eq(productId))).thenReturn(true);
 
         CreateReviewRequest request = new CreateReviewRequest(orderItemId, productId, 5, "Great product!");
         HttpEntity<CreateReviewRequest> entity = new HttpEntity<>(request, getHeaders(customerToken));
 
-        ResponseEntity<String> response = restTemplate.postForEntity("/api/reviews", entity, String.class);
+        ResponseEntity<String> response = restTemplate.postForEntity("/api/v1/reviews", entity, String.class);
         
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotBlank();
@@ -116,12 +109,12 @@ public class ReviewIntegrationTest {
         UUID productId = UUID.randomUUID();
         
         // Mock false
-        when(orderQueryApi.isEligibleForReview(eq(customerId), eq(orderItemId))).thenReturn(false);
+        when(orderQueryApi.isEligibleForReview(eq(customerId), eq(orderItemId), eq(productId))).thenReturn(false);
 
         CreateReviewRequest request = new CreateReviewRequest(orderItemId, productId, 5, "Great product!");
         HttpEntity<CreateReviewRequest> entity = new HttpEntity<>(request, getHeaders(customerToken));
 
-        ResponseEntity<String> response = restTemplate.postForEntity("/api/reviews", entity, String.class);
+        ResponseEntity<String> response = restTemplate.postForEntity("/api/v1/reviews", entity, String.class);
         
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     }
@@ -131,7 +124,7 @@ public class ReviewIntegrationTest {
         UUID orderItemId = UUID.randomUUID();
         UUID productId = UUID.randomUUID();
         
-        when(orderQueryApi.isEligibleForReview(eq(customerId), eq(orderItemId))).thenReturn(true);
+        when(orderQueryApi.isEligibleForReview(eq(customerId), eq(orderItemId), eq(productId))).thenReturn(true);
 
         CreateReviewRequest request = new CreateReviewRequest(orderItemId, productId, 5, "Great product!");
         HttpEntity<CreateReviewRequest> entity = new HttpEntity<>(request, getHeaders(customerToken));
@@ -141,7 +134,7 @@ public class ReviewIntegrationTest {
         List<Callable<ResponseEntity<String>>> tasks = new ArrayList<>();
 
         for (int i = 0; i < threadCount; i++) {
-            tasks.add(() -> restTemplate.postForEntity("/api/reviews", entity, String.class));
+            tasks.add(() -> restTemplate.postForEntity("/api/v1/reviews", entity, String.class));
         }
 
         List<Future<ResponseEntity<String>>> results = executor.invokeAll(tasks);
@@ -164,17 +157,18 @@ public class ReviewIntegrationTest {
         assertThat(conflictCount).isEqualTo(threadCount - 1);
         
         // Check rating summary
-        ResponseEntity<Map> summaryRes = restTemplate.getForEntity("/api/products/" + productId + "/reviews/summary", Map.class);
+        ResponseEntity<Map> summaryRes = restTemplate.getForEntity("/api/v1/products/" + productId + "/reviews/summary", Map.class);
         assertThat(summaryRes.getStatusCode()).isEqualTo(HttpStatus.OK);
-        // The type from JSON deserialization might be Integer or Double for totalReviews/averageRating.
-        assertThat(summaryRes.getBody().get("totalReviews")).isEqualTo(1);
+        Map<?, ?> body = summaryRes.getBody();
+        Map<?, ?> data = (Map<?, ?>) body.get("data");
+        assertThat(data.get("totalReviews")).isEqualTo(1);
     }
 
     @Test
     void shouldRejectUnauthenticatedRequest() {
         CreateReviewRequest request = new CreateReviewRequest(UUID.randomUUID(), UUID.randomUUID(), 5, "Great");
-        ResponseEntity<String> response = restTemplate.postForEntity("/api/reviews", request, String.class);
+        ResponseEntity<String> response = restTemplate.postForEntity("/api/v1/reviews", request, String.class);
         
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 }

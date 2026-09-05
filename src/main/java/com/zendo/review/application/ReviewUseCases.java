@@ -25,8 +25,8 @@ public class ReviewUseCases {
     @Transactional
     public ReviewId createReview(String customerId, UUID orderItemId, UUID productId, int ratingValue, String content) {
         // 1. Check purchase eligibility
-        if (!orderQueryApi.isEligibleForReview(customerId, orderItemId)) {
-            throw new UnauthorizedReviewException("Customer is not eligible to review this item. Item may not belong to the customer or order is not paid.");
+        if (!orderQueryApi.isEligibleForReview(customerId, orderItemId, productId)) {
+            throw new UnauthorizedReviewException("Customer is not eligible to review this item. Item may not belong to the customer, was not purchased for this product, or order is not paid.");
         }
 
         // 2. Create domain model

@@ -53,6 +53,9 @@ class NotificationIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private com.zendo.shared.messaging.EventSigner eventSigner;
+
     @Test
     void shouldCreateNotificationOnOrderPlacedEvent() throws Exception {
         String eventId = UUID.randomUUID().toString();
@@ -62,7 +65,7 @@ class NotificationIntegrationTest {
         Map<String, Object> event = Map.of(
                 "eventId", eventId,
                 "eventType", "OrderPlaced",
-                "occurredAt", "2026-08-26T12:00:00Z",
+                "occurredAt", java.time.Instant.now().toString(),
                 "orderId", orderId,
                 "customerId", customerId,
                 "cartId", UUID.randomUUID().toString(),
@@ -71,7 +74,11 @@ class NotificationIntegrationTest {
         );
 
         String payload = objectMapper.writeValueAsString(event);
-        rabbitTemplate.convertAndSend("zendo.topic", "order.events", payload);
+        String signature = eventSigner.sign(payload);
+        rabbitTemplate.convertAndSend("zendo.topic", "order.events", payload, msg -> {
+            msg.getMessageProperties().setHeader("X-Event-Signature", signature);
+            return msg;
+        });
 
         // Wait for consumer to process
         Thread.sleep(2000);
@@ -100,7 +107,7 @@ class NotificationIntegrationTest {
         Map<String, Object> event = Map.of(
                 "eventId", eventId,
                 "eventType", "OrderPlaced",
-                "occurredAt", "2026-08-26T12:00:00Z",
+                "occurredAt", java.time.Instant.now().toString(),
                 "orderId", orderId,
                 "customerId", customerId,
                 "cartId", UUID.randomUUID().toString(),
@@ -109,11 +116,18 @@ class NotificationIntegrationTest {
         );
 
         String payload = objectMapper.writeValueAsString(event);
+        String signature = eventSigner.sign(payload);
 
         // Send same event twice
-        rabbitTemplate.convertAndSend("zendo.topic", "order.events", payload);
+        rabbitTemplate.convertAndSend("zendo.topic", "order.events", payload, msg -> {
+            msg.getMessageProperties().setHeader("X-Event-Signature", signature);
+            return msg;
+        });
         Thread.sleep(1500);
-        rabbitTemplate.convertAndSend("zendo.topic", "order.events", payload);
+        rabbitTemplate.convertAndSend("zendo.topic", "order.events", payload, msg -> {
+            msg.getMessageProperties().setHeader("X-Event-Signature", signature);
+            return msg;
+        });
         Thread.sleep(1500);
 
         List<NotificationQueryApi.NotificationSummary> notifications =
@@ -132,7 +146,7 @@ class NotificationIntegrationTest {
         Map<String, Object> event = Map.of(
                 "eventId", eventId,
                 "eventType", "PaymentAuthorized",
-                "occurredAt", "2026-08-26T12:00:00Z",
+                "occurredAt", java.time.Instant.now().toString(),
                 "paymentId", UUID.randomUUID().toString(),
                 "orderId", orderId,
                 "customerId", customerId,
@@ -141,7 +155,11 @@ class NotificationIntegrationTest {
         );
 
         String payload = objectMapper.writeValueAsString(event);
-        rabbitTemplate.convertAndSend("zendo.topic", "payment.events", payload);
+        String signature = eventSigner.sign(payload);
+        rabbitTemplate.convertAndSend("zendo.topic", "payment.events", payload, msg -> {
+            msg.getMessageProperties().setHeader("X-Event-Signature", signature);
+            return msg;
+        });
 
         Thread.sleep(2000);
 
@@ -163,7 +181,7 @@ class NotificationIntegrationTest {
         Map<String, Object> event = Map.of(
                 "eventId", eventId,
                 "eventType", "PaymentFailed",
-                "occurredAt", "2026-08-26T12:00:00Z",
+                "occurredAt", java.time.Instant.now().toString(),
                 "paymentId", UUID.randomUUID().toString(),
                 "orderId", orderId,
                 "customerId", customerId,
@@ -171,7 +189,11 @@ class NotificationIntegrationTest {
         );
 
         String payload = objectMapper.writeValueAsString(event);
-        rabbitTemplate.convertAndSend("zendo.topic", "payment.events", payload);
+        String signatureFailed = eventSigner.sign(payload);
+        rabbitTemplate.convertAndSend("zendo.topic", "payment.events", payload, msg -> {
+            msg.getMessageProperties().setHeader("X-Event-Signature", signatureFailed);
+            return msg;
+        });
 
         Thread.sleep(2000);
 

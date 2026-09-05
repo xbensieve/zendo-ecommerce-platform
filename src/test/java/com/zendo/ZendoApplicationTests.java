@@ -19,7 +19,7 @@ import org.springframework.test.context.ActiveProfiles;
  * </ul>
  */
 @SpringBootTest
-@Import(TestcontainersConfiguration.class)
+@org.springframework.boot.testcontainers.context.ImportTestcontainers(TestcontainersConfiguration.class)
 @ActiveProfiles("test")
 class ZendoApplicationTests {
 

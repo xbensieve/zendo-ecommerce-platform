@@ -22,15 +22,7 @@ public class OrderQueryApiImpl implements OrderQueryApi {
 
     @Override
     @Transactional(readOnly = true)
-    public boolean isEligibleForReview(String customerId, UUID orderItemId) {
-        // We need to find if there is a ParentOrder for this customerId that contains this orderItemId,
-        // and that order must be PAYMENT_AUTHORIZED.
-        // Since OrderRepository only provides findById and save, we might need a custom query or 
-        // iterate. Wait, OrderRepository only provides `findById(UUID id)`. 
-        // If we don't have a specific find method in the repository, we can either:
-        // 1. Add it to the OrderRepository.
-        // 2. Use a direct JPA/JDBC query here.
-        // The most DDD-compliant way is adding `boolean hasPaidOrderItem(String customerId, UUID orderItemId)` to OrderRepository.
-        return orderRepository.hasPaidOrderItem(customerId, orderItemId);
+    public boolean isEligibleForReview(String customerId, UUID orderItemId, UUID productId) {
+        return orderRepository.hasPaidOrderItem(customerId, orderItemId, productId);
     }
 }

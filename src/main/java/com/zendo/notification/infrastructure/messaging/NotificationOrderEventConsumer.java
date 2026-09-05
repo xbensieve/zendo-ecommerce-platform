@@ -21,16 +21,25 @@ public class NotificationOrderEventConsumer {
     private static final Logger log = LoggerFactory.getLogger(NotificationOrderEventConsumer.class);
     private final NotificationUseCases notificationUseCases;
     private final ObjectMapper objectMapper;
+    private final com.zendo.shared.messaging.EventSigner eventSigner;
 
     public NotificationOrderEventConsumer(NotificationUseCases notificationUseCases,
-                                           ObjectMapper objectMapper) {
+                                           ObjectMapper objectMapper,
+                                           com.zendo.shared.messaging.EventSigner eventSigner) {
         this.notificationUseCases = notificationUseCases;
         this.objectMapper = objectMapper;
+        this.eventSigner = eventSigner;
     }
 
     @RabbitListener(queues = "notification.order.events.queue")
-    public void handle(String message) {
+    public void handle(String message, @org.springframework.messaging.handler.annotation.Header(value = "X-Event-Signature", required = false) String signature) {
         try {
+            // 1. Authenticity verification
+            if (signature == null || !eventSigner.verify(message, signature)) {
+                log.warn("SECURITY ALERT: Untrusted or unsigned RabbitMQ order event detected in Notification context! Discarding message.");
+                throw new org.springframework.amqp.AmqpRejectAndDontRequeueException("Untrusted or unsigned event signature");
+            }
+
             JsonNode event = objectMapper.readTree(message);
             String eventType = event.get("eventType").asText();
 
@@ -39,7 +48,7 @@ public class NotificationOrderEventConsumer {
                 String customerId = event.get("customerId").asText();
                 String orderId = event.get("orderId").asText();
                 BigDecimal totalAmount = new BigDecimal(event.get("totalAmount").asText());
-                String currency = event.get("currency").asText();
+                String currency = event.has("currency") ? event.get("currency").asText() : "USD";
 
                 String title = "Order Confirmed";
                 String msg = String.format(
@@ -50,8 +59,10 @@ public class NotificationOrderEventConsumer {
                 notificationUseCases.createAndSendNotification(
                         customerId, NotificationType.ORDER_CONFIRMED, title, msg, eventId);
             }
+        } catch (org.springframework.amqp.AmqpRejectAndDontRequeueException e) {
+            throw e;
         } catch (com.fasterxml.jackson.core.JsonProcessingException | IllegalArgumentException e) {
-            log.error("Poison message detected in Notification context (Order): {}", message, e);
+            log.error("Poison message detected in Notification context (Order): {}", com.zendo.shared.messaging.EventSigner.sanitizeForLog(message), e);
             throw new org.springframework.amqp.AmqpRejectAndDontRequeueException("Malformed message", e);
         } catch (Exception e) {
             log.error("Failed to process order event in Notification context", e);

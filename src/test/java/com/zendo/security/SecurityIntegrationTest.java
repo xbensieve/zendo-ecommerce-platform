@@ -86,11 +86,15 @@ public class SecurityIntegrationTest {
 
         // Act - Login
         Map<String, String> loginRequest = Map.of("email", email, "password", "password123");
-        ResponseEntity<Map> loginResponse = restTemplate.postForEntity("/auth/login", loginRequest, Map.class);
+        ResponseEntity<Map> loginResponse = restTemplate.postForEntity("/api/v1/auth/login", loginRequest, Map.class);
 
         // Assert - Login
         assertThat(loginResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-        String token = (String) loginResponse.getBody().get("token");
+        Map<?, ?> body = loginResponse.getBody();
+        assertThat(body).isNotNull();
+        Map<?, ?> data = (Map<?, ?>) body.get("data");
+        assertThat(data).isNotNull();
+        String token = (String) data.get("token");
         assertThat(token).isNotBlank();
 
         // Act - Access Protected Endpoint
@@ -98,7 +102,7 @@ public class SecurityIntegrationTest {
         headers.setBearerAuth(token);
         HttpEntity<Void> entity = new HttpEntity<>(headers);
         
-        ResponseEntity<String> cartResponse = restTemplate.exchange("/api/carts/me", HttpMethod.GET, entity, String.class);
+        ResponseEntity<String> cartResponse = restTemplate.exchange("/api/v1/carts/me", HttpMethod.GET, entity, String.class);
 
         // Assert - Access Protected
         assertThat(cartResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -120,7 +124,7 @@ public class SecurityIntegrationTest {
 
         // Act - Login
         Map<String, String> loginRequest = Map.of("email", email, "password", "wrongpass");
-        ResponseEntity<String> loginResponse = restTemplate.postForEntity("/auth/login", loginRequest, String.class);
+        ResponseEntity<String> loginResponse = restTemplate.postForEntity("/api/v1/auth/login", loginRequest, String.class);
 
         // Assert
         assertThat(loginResponse.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
@@ -143,7 +147,7 @@ public class SecurityIntegrationTest {
 
         // Act - Login
         Map<String, String> loginRequest = Map.of("email", email, "password", "password123");
-        ResponseEntity<String> loginResponse = restTemplate.postForEntity("/auth/login", loginRequest, String.class);
+        ResponseEntity<String> loginResponse = restTemplate.postForEntity("/api/v1/auth/login", loginRequest, String.class);
 
         // Assert
         assertThat(loginResponse.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
@@ -151,9 +155,7 @@ public class SecurityIntegrationTest {
 
     @Test
     void shouldRejectAccessWithoutToken() {
-        ResponseEntity<String> cartResponse = restTemplate.getForEntity("/api/carts/me", String.class);
-        // By default Spring Security returns 403 or 401. Since we didn't specify AuthenticationEntryPoint, it's 403 Forbidden.
-        // Actually, without token on a secured endpoint it returns 403.
-        assertThat(cartResponse.getStatusCode()).isIn(HttpStatus.UNAUTHORIZED, HttpStatus.FORBIDDEN);
+        ResponseEntity<String> cartResponse = restTemplate.getForEntity("/api/v1/carts/me", String.class);
+        assertThat(cartResponse.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 }

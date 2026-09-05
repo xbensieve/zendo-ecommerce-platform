@@ -6,7 +6,9 @@ import java.util.Collection;
 
 public interface JwtService extends TokenService {
     String generateToken(String userId, Collection<String> roles);
+    String generateToken(String userId, Collection<String> roles, int securityVersion);
     String extractUserId(String token);
     Collection<String> extractRoles(String token);
+    Integer extractSecurityVersion(String token);
     boolean isTokenValid(String token);
 }

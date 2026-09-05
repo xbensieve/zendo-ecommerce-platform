@@ -25,6 +25,8 @@ zendo:
       secret: ${JWT_SECRET:dev-secret-key-do-not-use-in-production}
       issuer: zendo
       expiration-ms: 3600000
+    event:
+      signing-secret: ${EVENT_SIGNING_SECRET:dev-event-signing-key-32-chars-minimum!}
 
 management:
   endpoints:

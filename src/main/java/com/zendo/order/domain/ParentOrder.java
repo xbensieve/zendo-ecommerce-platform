@@ -68,7 +68,26 @@ public class ParentOrder {
         }
     }
 
-    public void markPaymentAuthorized() {
+    public void markPaymentAuthorized(BigDecimal amount, String currency, String customerId) {
+        if (amount == null) {
+            throw new OrderException("Payment amount is required");
+        }
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new OrderException("Payment amount must be strictly positive");
+        }
+        if (currency == null || currency.trim().isEmpty()) {
+            throw new OrderException("Payment currency is required");
+        }
+        if (amount.compareTo(this.totalAmount) != 0) {
+            throw new OrderException(String.format("Payment amount mismatch: expected %s but received %s", this.totalAmount, amount));
+        }
+        if (!currency.trim().equalsIgnoreCase(this.currency.trim())) {
+            throw new OrderException(String.format("Payment currency mismatch: expected %s but received %s", this.currency, currency));
+        }
+        if (customerId != null && !customerId.isBlank() && !customerId.trim().equals(this.customerId.trim())) {
+            throw new OrderException(String.format("Payment customerId mismatch: expected %s but received %s", this.customerId, customerId));
+        }
+
         if (this.status == OrderStatus.PAYMENT_AUTHORIZED) {
             return; // Idempotent
         }
@@ -76,6 +95,14 @@ public class ParentOrder {
             throw new OrderException("Cannot mark payment authorized from status: " + this.status);
         }
         this.status = OrderStatus.PAYMENT_AUTHORIZED;
+    }
+
+    public void markPaymentAuthorized(BigDecimal amount, String currency) {
+        markPaymentAuthorized(amount, currency, null);
+    }
+
+    public void markPaymentAuthorized() {
+        markPaymentAuthorized(this.totalAmount, this.currency, null);
     }
 
     public void markPaymentFailed() {
@@ -86,6 +113,16 @@ public class ParentOrder {
             throw new OrderException("Cannot mark payment failed from status: " + this.status);
         }
         this.status = OrderStatus.PAYMENT_FAILED;
+    }
+
+    public void cancel() {
+        if (this.status == OrderStatus.CANCELLED) {
+            return; // Idempotent
+        }
+        if (this.status != OrderStatus.PAYMENT_PENDING && this.status != OrderStatus.PAYMENT_FAILED) {
+            throw new OrderException("Cannot cancel order from status: " + this.status);
+        }
+        this.status = OrderStatus.CANCELLED;
     }
 
     public UUID getId() { return id; }

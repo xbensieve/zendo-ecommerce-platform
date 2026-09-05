@@ -38,16 +38,7 @@ class FlashSaleConcurrencyIntegrationTest {
 
     private static final Logger log = LoggerFactory.getLogger(FlashSaleConcurrencyIntegrationTest.class);
 
-    @org.testcontainers.junit.jupiter.Container
-    static org.testcontainers.containers.RabbitMQContainer rabbitMQContainer = new org.testcontainers.containers.RabbitMQContainer(org.testcontainers.utility.DockerImageName.parse("rabbitmq:3.12-management"));
 
-    @org.springframework.test.context.DynamicPropertySource
-    static void configureProperties(org.springframework.test.context.DynamicPropertyRegistry registry) {
-        registry.add("spring.rabbitmq.host", rabbitMQContainer::getHost);
-        registry.add("spring.rabbitmq.port", rabbitMQContainer::getAmqpPort);
-        registry.add("spring.rabbitmq.username", rabbitMQContainer::getAdminUsername);
-        registry.add("spring.rabbitmq.password", rabbitMQContainer::getAdminPassword);
-    }
 
     @org.springframework.boot.test.mock.mockito.MockBean
     private com.zendo.catalog.api.CatalogQueryApi catalogQueryApi;

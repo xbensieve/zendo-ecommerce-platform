@@ -5,6 +5,7 @@ import com.zendo.order.domain.ChildOrder;
 import com.zendo.order.domain.OrderItem;
 import com.zendo.order.domain.OrderRepository;
 import com.zendo.order.domain.OrderStatus;
+import com.zendo.order.domain.OrderException;
 import com.zendo.order.domain.ParentOrder;
 import com.zendo.shared.messaging.DomainEvent;
 import org.springframework.dao.DuplicateKeyException;
@@ -32,9 +33,28 @@ public class JdbcOrderRepository implements OrderRepository {
 
     @Override
     public boolean checkAndSaveIdempotencyKey(String idempotencyKey) {
+        return checkAndSaveIdempotencyKey(idempotencyKey, null);
+    }
+
+    @Override
+    public boolean checkAndSaveIdempotencyKey(String idempotencyKey, String payloadHash) {
+        var existing = jdbcClient.sql("SELECT payload_hash FROM order_ctx.idempotency_keys WHERE key_value = :key")
+                .param("key", idempotencyKey)
+                .query().listOfRows();
+        if (!existing.isEmpty()) {
+            if (payloadHash != null) {
+                String existingHash = (String) existing.get(0).get("payload_hash");
+                if (existingHash != null && !existingHash.equals(payloadHash)) {
+                    throw new OrderException("Idempotency key payload mismatch for key: " + idempotencyKey);
+                }
+            }
+            return false;
+        }
+
         try {
-            jdbcClient.sql("INSERT INTO order_ctx.idempotency_keys (key_value) VALUES (:key)")
+            jdbcClient.sql("INSERT INTO order_ctx.idempotency_keys (key_value, payload_hash) VALUES (:key, :payloadHash)")
                     .param("key", idempotencyKey)
+                    .param("payloadHash", payloadHash)
                     .update();
             return true;
         } catch (DuplicateKeyException e) {
@@ -157,7 +177,7 @@ public class JdbcOrderRepository implements OrderRepository {
     }
 
     @Override
-    public boolean hasPaidOrderItem(String customerId, UUID orderItemId) {
+    public boolean hasPaidOrderItem(String customerId, UUID orderItemId, UUID productId) {
         String sql = """
             SELECT COUNT(1)
             FROM order_ctx.parent_orders p
@@ -165,11 +185,13 @@ public class JdbcOrderRepository implements OrderRepository {
             JOIN order_ctx.order_items i ON c.id = i.child_order_id
             WHERE p.customer_id = :customerId
               AND i.id = :orderItemId
+              AND i.product_id = :productId
               AND p.status = 'PAYMENT_AUTHORIZED'
         """;
         Integer count = jdbcClient.sql(sql)
                 .param("customerId", customerId)
                 .param("orderItemId", orderItemId)
+                .param("productId", productId)
                 .query(Integer.class)
                 .single();
         return count != null && count > 0;
