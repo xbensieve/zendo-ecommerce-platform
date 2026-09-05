@@ -94,4 +94,34 @@ class PricingQueryApiImplTest {
         assertEquals(0, new BigDecimal("50.00").compareTo(item.finalUnitPrice()));
         assertEquals("PROMO2", item.promotionRef());
     }
+
+    @Test
+    void shouldClampToMinimumUnitPriceOn100PercentDiscount() {
+        when(catalogQueryApi.getVariantInfo(anyString(), anyString())).thenReturn(
+                Optional.of(new CatalogQueryApi.ProductVariantInfo("product", "vendor", "SKU123", "Product", new BigDecimal("100.00"), "USD"))
+        );
+        when(promotionQueryApi.getApplicablePromotions(anyString(), anyString(), anyString())).thenReturn(
+                List.of(new PromotionQueryApi.PromotionDetails("PROMO_FREE", "PERCENTAGE", new BigDecimal("100")))
+        );
+
+        PricingQueryApi.PricedItem item = pricingQueryApi.calculateItemPrice("vendor", "product", "SKU123", 1, "FREE100");
+
+        assertEquals(0, new BigDecimal("0.01").compareTo(item.finalUnitPrice()));
+        assertEquals(0, new BigDecimal("99.99").compareTo(item.appliedDiscount()));
+    }
+
+    @Test
+    void shouldClampToMinimumUnitPriceOnExcessiveFixedAmountDiscount() {
+        when(catalogQueryApi.getVariantInfo(anyString(), anyString())).thenReturn(
+                Optional.of(new CatalogQueryApi.ProductVariantInfo("product", "vendor", "SKU123", "Product", new BigDecimal("50.00"), "USD"))
+        );
+        when(promotionQueryApi.getApplicablePromotions(anyString(), anyString(), anyString())).thenReturn(
+                List.of(new PromotionQueryApi.PromotionDetails("PROMO_EXCESS", "FIXED_AMOUNT", new BigDecimal("200.00")))
+        );
+
+        PricingQueryApi.PricedItem item = pricingQueryApi.calculateItemPrice("vendor", "product", "SKU123", 1, "BIGDISCOUNT");
+
+        assertEquals(0, new BigDecimal("0.01").compareTo(item.finalUnitPrice()));
+        assertEquals(0, new BigDecimal("49.99").compareTo(item.appliedDiscount()));
+    }
 }

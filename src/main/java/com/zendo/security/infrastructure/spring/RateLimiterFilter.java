@@ -21,7 +21,7 @@ public class RateLimiterFilter extends OncePerRequestFilter {
     private final DistributedRateLimiter rateLimiter;
 
     @Value("${zendo.security.rate-limiter.enabled:true}")
-    private boolean enabled;
+    private boolean enabled = true;
 
     public RateLimiterFilter(DistributedRateLimiter rateLimiter) {
         this.rateLimiter = rateLimiter;
@@ -37,7 +37,8 @@ public class RateLimiterFilter extends OncePerRequestFilter {
             return;
         }
 
-        String uri = request.getRequestURI();
+        String rawUri = request.getRequestURI();
+        String uri = rawUri != null ? rawUri.trim().toLowerCase(java.util.Locale.ROOT).replaceAll("/+$", "") : "";
         String method = request.getMethod();
 
         // 1. Login rate limit: 5 requests / minute per IP

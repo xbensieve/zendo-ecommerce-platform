@@ -44,6 +44,25 @@ public class NotificationOrderEventConsumer {
             String eventType = event.get("eventType").asText();
 
             if ("OrderPlaced".equals(eventType)) {
+                if (!event.hasNonNull("eventId") || !event.hasNonNull("orderId") || !event.hasNonNull("totalAmount")) {
+                    log.error("Poison message detected in Notification context (Order): missing required fields: {}", com.zendo.shared.messaging.EventSigner.sanitizeForLog(message));
+                    throw new org.springframework.amqp.AmqpRejectAndDontRequeueException("Missing required event fields");
+                }
+
+                // Freshness check: MANDATORY occurredAt for domain events
+                if (!event.hasNonNull("occurredAt") || event.get("occurredAt").asText().isBlank()) {
+                    log.error("Security violation: missing occurredAt timestamp in Notification context (Order): {}", com.zendo.shared.messaging.EventSigner.sanitizeForLog(message));
+                    throw new org.springframework.amqp.AmqpRejectAndDontRequeueException("Missing required occurredAt timestamp");
+                }
+
+                try {
+                    java.time.Instant occurredAt = java.time.Instant.parse(event.get("occurredAt").asText());
+                    com.zendo.shared.messaging.EventSigner.validateFreshness(occurredAt, 86400, 300);
+                } catch (java.time.format.DateTimeParseException e) {
+                    log.error("Malformed occurredAt timestamp in Notification context (Order): {}", com.zendo.shared.messaging.EventSigner.sanitizeForLog(message));
+                    throw new org.springframework.amqp.AmqpRejectAndDontRequeueException("Invalid occurredAt timestamp", e);
+                }
+
                 String eventId = event.get("eventId").asText();
                 String customerId = event.get("customerId").asText();
                 String orderId = event.get("orderId").asText();

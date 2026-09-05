@@ -16,6 +16,8 @@ public class PricingQueryApiImpl implements PricingQueryApi {
     private final CatalogQueryApi catalogQueryApi;
     private final PromotionQueryApi promotionQueryApi;
 
+    private static final BigDecimal MIN_UNIT_PRICE = new BigDecimal("0.01");
+
     public PricingQueryApiImpl(CatalogQueryApi catalogQueryApi, PromotionQueryApi promotionQueryApi) {
         this.catalogQueryApi = catalogQueryApi;
         this.promotionQueryApi = promotionQueryApi;
@@ -53,9 +55,10 @@ public class PricingQueryApiImpl implements PricingQueryApi {
                 currentFinalUnitPrice = originalUnitPrice.subtract(currentAppliedDiscount);
             }
             
-            if (currentFinalUnitPrice.compareTo(BigDecimal.ZERO) < 0) {
-                currentFinalUnitPrice = BigDecimal.ZERO;
-                currentAppliedDiscount = originalUnitPrice;
+            // Enforce minimum unit price floor to prevent zero-amount order deadlock in financial authorization
+            if (currentFinalUnitPrice.compareTo(MIN_UNIT_PRICE) < 0) {
+                currentFinalUnitPrice = MIN_UNIT_PRICE;
+                currentAppliedDiscount = originalUnitPrice.subtract(MIN_UNIT_PRICE).max(BigDecimal.ZERO);
             }
             
             // If this promotion gives a better price (lower final price)

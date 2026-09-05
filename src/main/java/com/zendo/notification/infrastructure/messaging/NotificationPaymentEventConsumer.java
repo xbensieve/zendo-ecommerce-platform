@@ -45,6 +45,20 @@ public class NotificationPaymentEventConsumer {
             String eventType = event.get("eventType").asText();
             String eventId = event.get("eventId").asText();
 
+            // Freshness check: MANDATORY occurredAt for domain events
+            if (!event.hasNonNull("occurredAt") || event.get("occurredAt").asText().isBlank()) {
+                log.error("Security violation: missing occurredAt timestamp in Notification context (Payment): {}", com.zendo.shared.messaging.EventSigner.sanitizeForLog(message));
+                throw new org.springframework.amqp.AmqpRejectAndDontRequeueException("Missing required occurredAt timestamp");
+            }
+
+            try {
+                java.time.Instant occurredAt = java.time.Instant.parse(event.get("occurredAt").asText());
+                com.zendo.shared.messaging.EventSigner.validateFreshness(occurredAt, 86400, 300);
+            } catch (java.time.format.DateTimeParseException e) {
+                log.error("Malformed occurredAt timestamp in Notification context (Payment): {}", com.zendo.shared.messaging.EventSigner.sanitizeForLog(message));
+                throw new org.springframework.amqp.AmqpRejectAndDontRequeueException("Invalid occurredAt timestamp", e);
+            }
+
             if ("PaymentAuthorized".equals(eventType)) {
                 String orderId = event.get("orderId").asText();
                 String customerId = event.has("customerId") ? event.get("customerId").asText() : "unknown-customer";
