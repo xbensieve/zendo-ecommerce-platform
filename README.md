@@ -45,11 +45,16 @@ Infrastructure Layer (Adapters, JPA, Repositories)
 | **Order** | Orders, checkout workflows, and multi-vendor splitting |
 | **Payment** | Payment lifecycle |
 | **Promotion** | Promotions and Flash Sale aggregate |
-| **Pricing** | Pricing structures (Placeholder / Planned) |
+| **Pricing** | Dynamic price calculation, promotions/discounts engine (FIXED_AMOUNT & PERCENTAGE), unit price clamping floor ($0.01) |
 | **Review** | Product reviews and ratings |
 | **Notification** | Notification ledger and event handling |
 
 ## Core Engineering Decisions
+
+### Dynamic Pricing & Discount Protection
+The `Pricing` bounded context dynamically evaluates catalog base prices against active promotions (coupons, vendor discounts):
+- Evaluates both `FIXED_AMOUNT` and `PERCENTAGE` discount policies to determine the most advantageous customer price.
+- Strictly enforces a **minimum unit price floor ($0.01)** invariant (`MIN_UNIT_PRICE = 0.01`). This prevents zero-amount order deadlock and payment authorization bypass during financial transactions.
 
 ### Inventory Consistency
 PostgreSQL is the absolute source of truth for inventory. Concurrency-sensitive inventory operations rely on atomic database updates rather than in-memory validation. The core invariant maintained is:

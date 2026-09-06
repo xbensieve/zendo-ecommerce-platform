@@ -1,6 +1,8 @@
 package com.zendo.notification.domain;
 
-public class NotificationException extends RuntimeException {
+import com.zendo.shared.exception.DomainException;
+
+public class NotificationException extends DomainException {
 
     public NotificationException(String message) {
         super(message);

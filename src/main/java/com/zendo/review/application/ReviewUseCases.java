@@ -79,13 +79,13 @@ public class ReviewUseCases {
         reviewRepository.save(review);
     }
 
-    public static class UnauthorizedReviewException extends RuntimeException {
+    public static class UnauthorizedReviewException extends ReviewException {
         public UnauthorizedReviewException(String message) {
             super(message);
         }
     }
 
-    public static class DuplicateReviewException extends RuntimeException {
+    public static class DuplicateReviewException extends ReviewException {
         public DuplicateReviewException(String message) {
             super(message);
         }

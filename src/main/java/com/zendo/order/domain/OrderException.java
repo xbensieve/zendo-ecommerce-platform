@@ -1,6 +1,8 @@
 package com.zendo.order.domain;
 
-public class OrderException extends RuntimeException {
+import com.zendo.shared.exception.DomainException;
+
+public class OrderException extends DomainException {
     public OrderException(String message) {
         super(message);
     }

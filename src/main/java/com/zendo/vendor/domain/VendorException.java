@@ -1,6 +1,8 @@
 package com.zendo.vendor.domain;
 
-public class VendorException extends RuntimeException {
+import com.zendo.shared.exception.DomainException;
+
+public class VendorException extends DomainException {
     public VendorException(String message) {
         super(message);
     }

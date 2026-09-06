@@ -1,6 +1,8 @@
 package com.zendo.catalog.domain;
 
-public class CatalogException extends RuntimeException {
+import com.zendo.shared.exception.DomainException;
+
+public class CatalogException extends DomainException {
     public CatalogException(String message) {
         super(message);
     }

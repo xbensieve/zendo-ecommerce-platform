@@ -1,5 +1,6 @@
 package com.zendo.shared.api.rest;
 
+import com.zendo.shared.exception.DomainException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -29,23 +30,18 @@ public class GlobalExceptionHandler {
         return traceId != null ? traceId : java.util.UUID.randomUUID().toString();
     }
 
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<Object> handleRuntimeException(RuntimeException ex, WebRequest request) {
-        String pkg = ex.getClass().getPackage() != null ? ex.getClass().getPackage().getName() : "";
-        String simpleName = ex.getClass().getSimpleName();
-        if (pkg.startsWith("com.zendo.") && simpleName.endsWith("Exception") && !simpleName.contains("Security")) {
-            log.warn("Domain business rule violation [{}]: {}", simpleName, ex.getMessage());
+    @ExceptionHandler(DomainException.class)
+    public ResponseEntity<Object> handleDomainException(DomainException ex, WebRequest request) {
+        log.warn("Domain business rule violation [{}]: {}", ex.getClass().getSimpleName(), ex.getMessage());
 
-            Map<String, Object> body = new LinkedHashMap<>();
-            body.put("timestamp", Instant.now());
-            body.put("status", HttpStatus.BAD_REQUEST.value());
-            body.put("error", "Bad Request");
-            body.put("message", ex.getMessage());
-            body.put("traceId", resolveTraceId());
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", Instant.now());
+        body.put("status", HttpStatus.BAD_REQUEST.value());
+        body.put("error", "Bad Request");
+        body.put("message", ex.getMessage());
+        body.put("traceId", resolveTraceId());
 
-            return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
-        }
-        return handleAllExceptions(ex, request);
+        return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)

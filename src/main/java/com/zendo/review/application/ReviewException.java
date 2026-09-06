@@ -1,6 +1,8 @@
 package com.zendo.review.application;
 
-public class ReviewException extends RuntimeException {
+import com.zendo.shared.exception.DomainException;
+
+public class ReviewException extends DomainException {
     public ReviewException(String message) {
         super(message);
     }

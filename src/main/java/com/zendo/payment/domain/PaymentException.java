@@ -1,6 +1,8 @@
 package com.zendo.payment.domain;
 
-public class PaymentException extends RuntimeException {
+import com.zendo.shared.exception.DomainException;
+
+public class PaymentException extends DomainException {
     public PaymentException(String message) {
         super(message);
     }

@@ -1,6 +1,8 @@
 package com.zendo.cart.domain;
 
-public class CartException extends RuntimeException {
+import com.zendo.shared.exception.DomainException;
+
+public class CartException extends DomainException {
     public CartException(String message) {
         super(message);
     }
