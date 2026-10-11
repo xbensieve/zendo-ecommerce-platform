@@ -20,16 +20,28 @@ public class AuthUseCases {
     private final UserCredentialsRepository credentialsRepository;
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
+    private final com.zendo.shared.security.DistributedRateLimiter rateLimiter;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public AuthUseCases(
+            IdentityQueryApi identityQueryApi,
+            UserCredentialsRepository credentialsRepository,
+            PasswordEncoder passwordEncoder,
+            TokenService tokenService,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) com.zendo.shared.security.DistributedRateLimiter rateLimiter) {
+        this.identityQueryApi = identityQueryApi;
+        this.credentialsRepository = credentialsRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.tokenService = tokenService;
+        this.rateLimiter = rateLimiter;
+    }
 
     public AuthUseCases(
             IdentityQueryApi identityQueryApi,
             UserCredentialsRepository credentialsRepository,
             PasswordEncoder passwordEncoder,
             TokenService tokenService) {
-        this.identityQueryApi = identityQueryApi;
-        this.credentialsRepository = credentialsRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.tokenService = tokenService;
+        this(identityQueryApi, credentialsRepository, passwordEncoder, tokenService, null);
     }
 
     public AuthResult login(String email, String rawPassword) {
@@ -38,6 +50,19 @@ public class AuthUseCases {
         }
 
         String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
+
+        // Account-level brute-force and credential-stuffing defense (VULN-03)
+        if (rateLimiter != null) {
+            String lockoutKey = "auth:lockout:" + normalizedEmail;
+            if (!rateLimiter.isAllowed(lockoutKey, 10, 900)) {
+                throw new AuthException("Account is temporarily locked due to multiple failed login attempts. Please try again in 15 minutes.");
+            }
+
+            String userRateLimitKey = "rl:auth:login:user:" + normalizedEmail;
+            if (!rateLimiter.isAllowed(userRateLimitKey, 5, 60)) {
+                throw new AuthException("Too many login attempts for this account. Please try again later.");
+            }
+        }
 
         // 1. Fetch user from Identity
         var userOpt = identityQueryApi.getUserByEmail(normalizedEmail);

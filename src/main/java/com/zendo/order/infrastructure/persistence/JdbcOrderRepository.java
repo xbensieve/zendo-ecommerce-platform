@@ -64,45 +64,50 @@ public class JdbcOrderRepository implements OrderRepository {
 
     @Override
     public void save(ParentOrder order) {
-        jdbcClient.sql("INSERT INTO order_ctx.parent_orders (id, customer_id, status, total_amount, currency) VALUES (:id, :customerId, :status, :totalAmount, :currency) " +
-                       "ON CONFLICT (id) DO UPDATE SET status = :status, updated_at = NOW()")
+        var existing = jdbcClient.sql("SELECT id FROM order_ctx.parent_orders WHERE id = :id")
                 .param("id", order.getId())
-                .param("customerId", order.getCustomerId())
-                .param("status", order.getStatus().name())
-                .param("totalAmount", order.getTotalAmount())
-                .param("currency", order.getCurrency())
-                .update();
+                .query().listOfRows();
 
-        // Delete existing children and items for simplicity of update (or we could only insert, assuming orders are mostly append-only/immutable structure)
-        jdbcClient.sql("DELETE FROM order_ctx.child_orders WHERE parent_order_id = :parentId")
-                .param("parentId", order.getId())
-                .update();
-
-        for (ChildOrder childOrder : order.getChildOrders()) {
-            jdbcClient.sql("INSERT INTO order_ctx.child_orders (id, parent_order_id, vendor_id, total_amount, currency) VALUES (:id, :parentId, :vendorId, :totalAmount, :currency)")
-                    .param("id", childOrder.getId())
-                    .param("parentId", order.getId())
-                    .param("vendorId", childOrder.getVendorId())
-                    .param("totalAmount", childOrder.getTotalAmount())
-                    .param("currency", childOrder.getCurrency())
+        if (existing.isEmpty()) {
+            jdbcClient.sql("INSERT INTO order_ctx.parent_orders (id, customer_id, status, total_amount, currency) VALUES (:id, :customerId, :status, :totalAmount, :currency)")
+                    .param("id", order.getId())
+                    .param("customerId", order.getCustomerId())
+                    .param("status", order.getStatus().name())
+                    .param("totalAmount", order.getTotalAmount())
+                    .param("currency", order.getCurrency())
                     .update();
 
-            for (OrderItem item : childOrder.getItems()) {
-                jdbcClient.sql("INSERT INTO order_ctx.order_items (id, child_order_id, product_id, sku, product_name, original_unit_price, applied_discount, final_unit_price, promotion_ref, quantity, line_total) " +
-                               "VALUES (:id, :childOrderId, :productId, :sku, :productName, :originalUnitPrice, :appliedDiscount, :finalUnitPrice, :promotionRef, :quantity, :lineTotal)")
-                        .param("id", item.getId())
-                        .param("childOrderId", childOrder.getId())
-                        .param("productId", item.getProductId())
-                        .param("sku", item.getSku())
-                        .param("productName", item.getProductName())
-                        .param("originalUnitPrice", item.getOriginalUnitPrice())
-                        .param("appliedDiscount", item.getAppliedDiscount())
-                        .param("finalUnitPrice", item.getFinalUnitPrice())
-                        .param("promotionRef", item.getPromotionRef())
-                        .param("quantity", item.getQuantity())
-                        .param("lineTotal", item.getLineTotal())
+            for (ChildOrder childOrder : order.getChildOrders()) {
+                jdbcClient.sql("INSERT INTO order_ctx.child_orders (id, parent_order_id, vendor_id, total_amount, currency) VALUES (:id, :parentId, :vendorId, :totalAmount, :currency)")
+                        .param("id", childOrder.getId())
+                        .param("parentId", order.getId())
+                        .param("vendorId", childOrder.getVendorId())
+                        .param("totalAmount", childOrder.getTotalAmount())
+                        .param("currency", childOrder.getCurrency())
                         .update();
+
+                for (OrderItem item : childOrder.getItems()) {
+                    jdbcClient.sql("INSERT INTO order_ctx.order_items (id, child_order_id, product_id, sku, product_name, original_unit_price, applied_discount, final_unit_price, promotion_ref, quantity, line_total) " +
+                                   "VALUES (:id, :childOrderId, :productId, :sku, :productName, :originalUnitPrice, :appliedDiscount, :finalUnitPrice, :promotionRef, :quantity, :lineTotal)")
+                            .param("id", item.getId())
+                            .param("childOrderId", childOrder.getId())
+                            .param("productId", item.getProductId())
+                            .param("sku", item.getSku())
+                            .param("productName", item.getProductName())
+                            .param("originalUnitPrice", item.getOriginalUnitPrice())
+                            .param("appliedDiscount", item.getAppliedDiscount())
+                            .param("finalUnitPrice", item.getFinalUnitPrice())
+                            .param("promotionRef", item.getPromotionRef())
+                            .param("quantity", item.getQuantity())
+                            .param("lineTotal", item.getLineTotal())
+                            .update();
+                }
             }
+        } else {
+            jdbcClient.sql("UPDATE order_ctx.parent_orders SET status = :status, updated_at = NOW() WHERE id = :id")
+                    .param("id", order.getId())
+                    .param("status", order.getStatus().name())
+                    .update();
         }
         
         // Save domain events as outbox messages
@@ -186,7 +191,7 @@ public class JdbcOrderRepository implements OrderRepository {
             WHERE p.customer_id = :customerId
               AND i.id = :orderItemId
               AND i.product_id = :productId
-              AND p.status = 'PAYMENT_AUTHORIZED'
+              AND p.status IN ('PAYMENT_AUTHORIZED', 'PAID', 'CONFIRMED', 'READY_FOR_FULFILLMENT')
         """;
         Integer count = jdbcClient.sql(sql)
                 .param("customerId", customerId)

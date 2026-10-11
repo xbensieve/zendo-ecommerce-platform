@@ -58,7 +58,7 @@ public class AuthController {
         String email, 
         
         @NotBlank(message = "Password is required")
-        @Size(min = 10, max = 128, message = "Password must be between 10 and 128 characters")
+        @Size(min = 10, max = 72, message = "Password must be between 10 and 72 characters")
         String password, 
         
         @NotBlank(message = "First name is required")

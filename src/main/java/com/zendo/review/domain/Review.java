@@ -57,11 +57,14 @@ public class Review {
     }
 
     public void updateContentAndRating(String newContent, Rating newRating) {
+        if (this.status == ReviewStatus.REJECTED) {
+            throw new IllegalArgumentException("Cannot update a review that has been rejected");
+        }
         validateContent(newContent);
         this.content = newContent;
         this.rating = newRating;
+        this.status = ReviewStatus.PENDING;
         this.updatedAt = Instant.now();
-        // Depending on policy, we might transition to PENDING. Plan says keep it as is.
     }
 
     public void publish() {

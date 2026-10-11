@@ -41,13 +41,16 @@ public class PricingQueryApiImpl implements PricingQueryApi {
         BigDecimal bestAppliedDiscount = BigDecimal.ZERO;
         BigDecimal bestFinalUnitPrice = originalUnitPrice;
         String bestPromotionRef = null;
+        String bestDiscountType = null;
 
         for (PromotionQueryApi.PromotionDetails promo : applicablePromotions) {
             BigDecimal currentAppliedDiscount = BigDecimal.ZERO;
             BigDecimal currentFinalUnitPrice = originalUnitPrice;
             
             if ("FIXED_AMOUNT".equals(promo.discountType())) {
-                currentAppliedDiscount = promo.discountValue().min(originalUnitPrice);
+                BigDecimal discountPerUnit = promo.discountValue()
+                        .divide(BigDecimal.valueOf(quantity), 2, RoundingMode.HALF_UP);
+                currentAppliedDiscount = discountPerUnit.min(originalUnitPrice);
                 currentFinalUnitPrice = originalUnitPrice.subtract(currentAppliedDiscount);
             } else if ("PERCENTAGE".equals(promo.discountType())) {
                 currentAppliedDiscount = originalUnitPrice.multiply(promo.discountValue())
@@ -66,6 +69,7 @@ public class PricingQueryApiImpl implements PricingQueryApi {
                 bestFinalUnitPrice = currentFinalUnitPrice;
                 bestAppliedDiscount = currentAppliedDiscount;
                 bestPromotionRef = promo.promotionRef();
+                bestDiscountType = promo.discountType();
             }
         }
 
@@ -79,7 +83,8 @@ public class PricingQueryApiImpl implements PricingQueryApi {
                 originalUnitPrice,
                 bestAppliedDiscount,
                 bestFinalUnitPrice,
-                bestPromotionRef
+                bestPromotionRef,
+                bestDiscountType
         );
     }
 }

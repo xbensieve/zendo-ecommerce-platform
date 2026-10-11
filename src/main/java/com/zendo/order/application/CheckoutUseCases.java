@@ -51,9 +51,25 @@ public class CheckoutUseCases {
     public ParentOrder checkout(String customerId, String idempotencyKey, String couponCode) {
         meterRegistry.counter("checkout_attempts_total").increment();
         
-        // 1. Idempotency Check (Scoped to customer with payload hash)
+        // 1. Fetch Cart first to include items in idempotency payload digest (VULN-09)
+        var cartDetails = cartQueryApi.getActiveCartDetails(customerId)
+                .orElseThrow(() -> {
+                    meterRegistry.counter("checkout_rejected_total", "reason", "CART_NOT_FOUND").increment();
+                    return new OrderException("Active cart not found");
+                });
+
+        if (cartDetails.items().isEmpty()) {
+            meterRegistry.counter("checkout_rejected_total", "reason", "CART_EMPTY").increment();
+            throw new OrderException("Cannot checkout an empty cart");
+        }
+
+        // 2. Idempotency Check (Scoped to customer with comprehensive payload hash including cart items)
+        String itemsDigest = cartDetails.items().stream()
+                .map(i -> i.sku() + ":" + i.quantity())
+                .sorted()
+                .collect(Collectors.joining(","));
         String scopedKey = customerId + ":" + idempotencyKey;
-        String payloadToHash = customerId + ":" + (couponCode != null ? couponCode : "");
+        String payloadToHash = customerId + ":" + (couponCode != null ? couponCode : "") + ":" + itemsDigest;
         String payloadHash;
         try {
             byte[] hash = java.security.MessageDigest.getInstance("SHA-256")
@@ -68,18 +84,6 @@ public class CheckoutUseCases {
             throw new OrderException("Duplicate checkout request for idempotency key: " + idempotencyKey);
         }
 
-        // 2. Fetch Cart
-        var cartDetails = cartQueryApi.getActiveCartDetails(customerId)
-                .orElseThrow(() -> {
-                    meterRegistry.counter("checkout_rejected_total", "reason", "CART_NOT_FOUND").increment();
-                    return new OrderException("Active cart not found");
-                });
-
-        if (cartDetails.items().isEmpty()) {
-            meterRegistry.counter("checkout_rejected_total", "reason", "CART_EMPTY").increment();
-            throw new OrderException("Cannot checkout an empty cart");
-        }
-
         // Atomically transition cart to CHECKED_OUT within the checkout transaction
         cartUseCases.checkoutCart(customerId);
 
@@ -91,6 +95,7 @@ public class CheckoutUseCases {
 
         List<ChildOrder> childOrders = new ArrayList<>();
         String orderCurrency = null; // We assume a single currency for the whole order in this MVP
+        boolean fixedCouponConsumed = false; // Prevent fixed amount coupon multiplication across items (VULN-01)
 
         for (var entry : itemsByVendor.entrySet()) {
             UUID vendorId = UUID.fromString(entry.getKey());
@@ -98,7 +103,11 @@ public class CheckoutUseCases {
 
             for (var cartItem : entry.getValue()) {
                 // 4. Validate with Pricing
-                var pricedItem = pricingQueryApi.calculateItemPrice(vendorId.toString(), cartItem.productId(), cartItem.sku(), cartItem.quantity(), couponCode);
+                String effectiveCoupon = fixedCouponConsumed ? null : couponCode;
+                var pricedItem = pricingQueryApi.calculateItemPrice(vendorId.toString(), cartItem.productId(), cartItem.sku(), cartItem.quantity(), effectiveCoupon);
+                if (pricedItem.promotionRef() != null && pricedItem.promotionRef().startsWith("COUPON:") && "FIXED_AMOUNT".equals(pricedItem.discountType())) {
+                    fixedCouponConsumed = true;
+                }
                 
                 if (orderCurrency == null) {
                     orderCurrency = pricedItem.currency();

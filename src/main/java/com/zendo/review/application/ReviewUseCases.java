@@ -29,9 +29,10 @@ public class ReviewUseCases {
             throw new UnauthorizedReviewException("Customer is not eligible to review this item. Item may not belong to the customer, was not purchased for this product, or order is not paid.");
         }
 
-        // 2. Create domain model
+        // 2. Create domain model with HTML sanitization (VULN-05)
+        String sanitizedContent = content != null ? org.springframework.web.util.HtmlUtils.htmlEscape(content) : null;
         Rating rating = new Rating(ratingValue);
-        Review review = new Review(ReviewId.generate(), customerId, orderItemId, productId, rating, content);
+        Review review = new Review(ReviewId.generate(), customerId, orderItemId, productId, rating, sanitizedContent);
 
         try {
             // 3. Persist
@@ -52,7 +53,8 @@ public class ReviewUseCases {
             throw new UnauthorizedReviewException("You can only edit your own reviews");
         }
 
-        review.updateContentAndRating(content, new Rating(ratingValue));
+        String sanitizedContent = content != null ? org.springframework.web.util.HtmlUtils.htmlEscape(content) : null;
+        review.updateContentAndRating(sanitizedContent, new Rating(ratingValue));
         reviewRepository.save(review);
     }
 

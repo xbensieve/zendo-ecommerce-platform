@@ -29,16 +29,16 @@ class PasswordPolicyTest {
     void shouldRejectShortPasswords(String shortPass) {
         assertThatThrownBy(() -> PasswordPolicy.validate(shortPass))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("between 10 and 128 characters");
+                .hasMessageContaining("between 10 and 72 characters");
     }
 
     @Test
-    @DisplayName("Should reject passwords longer than 128 characters")
+    @DisplayName("Should reject passwords longer than 72 characters (BCrypt limit)")
     void shouldRejectLongPasswords() {
-        String longPass = "a".repeat(129);
+        String longPass = "a".repeat(73);
         assertThatThrownBy(() -> PasswordPolicy.validate(longPass))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("between 10 and 128 characters");
+                .hasMessageContaining("between 10 and 72 characters");
     }
 
     @ParameterizedTest

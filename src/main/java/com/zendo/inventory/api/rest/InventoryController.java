@@ -60,5 +60,8 @@ public class InventoryController {
         if (!vendorQueryApi.isVendorOwner(item.getVendorId().toString(), user.getUserId())) {
             throw new AccessDeniedException("User does not have ownership of the vendor for product inventory: " + productId);
         }
+        if (!vendorQueryApi.isVendorActive(item.getVendorId().toString())) {
+            throw new AccessDeniedException("Vendor is not active for product inventory: " + productId);
+        }
     }
 }

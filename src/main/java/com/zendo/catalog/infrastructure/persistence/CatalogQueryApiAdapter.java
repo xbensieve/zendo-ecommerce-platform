@@ -12,9 +12,17 @@ import java.util.UUID;
 public class CatalogQueryApiAdapter implements CatalogQueryApi {
 
     private final SpringDataProductRepository repository;
+    private final com.zendo.vendor.api.VendorQueryApi vendorQueryApi;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CatalogQueryApiAdapter(SpringDataProductRepository repository,
+                                  @org.springframework.beans.factory.annotation.Autowired(required = false) com.zendo.vendor.api.VendorQueryApi vendorQueryApi) {
+        this.repository = repository;
+        this.vendorQueryApi = vendorQueryApi;
+    }
 
     public CatalogQueryApiAdapter(SpringDataProductRepository repository) {
-        this.repository = repository;
+        this(repository, null);
     }
 
     @Override
@@ -24,6 +32,9 @@ public class CatalogQueryApiAdapter implements CatalogQueryApi {
 
     @Override
     public Optional<ProductVariantInfo> getVariantInfo(String vendorId, String sku) {
+        if (vendorQueryApi != null && !vendorQueryApi.isVendorActive(vendorId)) {
+            return Optional.empty();
+        }
         return repository.findByVendorIdAndSku(UUID.fromString(vendorId), sku)
                 .filter(p -> "ACTIVE".equals(p.getStatus()))
                 .flatMap(p -> p.getVariants().stream()

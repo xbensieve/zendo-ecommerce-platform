@@ -121,6 +121,7 @@ public class InventorySecurityTest {
         InventoryItem mockItem = InventoryItem.reconstitute(productId, vendorId, 100, 0);
         when(inventoryUseCases.getInventoryItem(productId)).thenReturn(Optional.of(mockItem));
         when(vendorQueryApi.isVendorOwner(vendorId.toString(), vendorUserId)).thenReturn(true);
+        when(vendorQueryApi.isVendorActive(vendorId.toString())).thenReturn(true);
 
         String payload = """
             {
@@ -136,6 +137,32 @@ public class InventorySecurityTest {
                 .andExpect(jsonPath("$.success").value(true));
 
         verify(inventoryUseCases).adjustInventory(eq(productId), eq(250), eq("restock-ref-1"));
+    }
+
+    @Test
+    void shouldRejectInventoryAdjustmentWhenVendorIsSuspended() throws Exception {
+        UUID productId = UUID.randomUUID();
+        UUID vendorId = UUID.randomUUID();
+        String vendorUserId = UUID.randomUUID().toString();
+        currentUser = new TestUser(vendorUserId, List.of("VENDOR"));
+
+        InventoryItem mockItem = InventoryItem.reconstitute(productId, vendorId, 100, 0);
+        when(inventoryUseCases.getInventoryItem(productId)).thenReturn(Optional.of(mockItem));
+        when(vendorQueryApi.isVendorOwner(vendorId.toString(), vendorUserId)).thenReturn(true);
+        when(vendorQueryApi.isVendorActive(vendorId.toString())).thenReturn(false);
+
+        String payload = """
+            {
+                "newOnHandQty": 250,
+                "referenceId": "restock-ref-1"
+            }
+        """;
+
+        mockMvc.perform(post("/api/v1/inventory/" + productId + "/adjust")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(payload))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("Forbidden"));
     }
 
     @Test

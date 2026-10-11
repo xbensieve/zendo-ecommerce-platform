@@ -6,7 +6,7 @@ import java.util.Set;
 public final class PasswordPolicy {
 
     public static final int MIN_LENGTH = 10;
-    public static final int MAX_LENGTH = 128;
+    public static final int MAX_LENGTH = 72;
 
     private static final Set<String> COMMON_PASSWORDS = Set.of(
             "1234567890",
@@ -47,6 +47,9 @@ public final class PasswordPolicy {
         if (rawPassword.length() < MIN_LENGTH || rawPassword.length() > MAX_LENGTH) {
             throw new IllegalArgumentException(
                     String.format("Password must be between %d and %d characters", MIN_LENGTH, MAX_LENGTH));
+        }
+        if (rawPassword.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
+            throw new IllegalArgumentException("Password cannot exceed 72 bytes to prevent bcrypt truncation");
         }
         String normalized = rawPassword.trim().toLowerCase(Locale.ROOT);
         if (COMMON_PASSWORDS.contains(normalized)) {

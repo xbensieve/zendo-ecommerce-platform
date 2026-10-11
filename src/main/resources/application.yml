@@ -93,6 +93,10 @@ server:
 
 zendo:
   security:
+    jwt:
+      secret: ${JWT_SECRET:dev-secret-key-do-not-use-in-production}
+      issuer: ${JWT_ISSUER:zendo}
+      expiration-ms: ${JWT_EXPIRATION_MS:3600000}
     rate-limiter:
       enabled: true
       trusted-proxies: ${TRUSTED_PROXIES:127.0.0.1,::1,10.0.0.0/8}

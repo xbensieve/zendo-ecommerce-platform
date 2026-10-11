@@ -26,7 +26,11 @@ public class DistributedRateLimiter {
 
     private final StringRedisTemplate redisTemplate;
     private final DefaultRedisScript<Long> redisScript;
-    private final ConcurrentMap<String, LocalCounter> localFallback = new ConcurrentHashMap<>();
+    private final com.github.benmanes.caffeine.cache.Cache<String, LocalCounter> localFallback =
+            com.github.benmanes.caffeine.cache.Caffeine.newBuilder()
+                    .maximumSize(50_000)
+                    .expireAfterWrite(java.time.Duration.ofMinutes(5))
+                    .build();
 
     @Autowired
     public DistributedRateLimiter(@Autowired(required = false) StringRedisTemplate redisTemplate) {
@@ -91,14 +95,14 @@ public class DistributedRateLimiter {
 
     private boolean isAllowedLocally(String key, int maxRequests, int windowSeconds) {
         long now = Instant.now().getEpochSecond();
-        LocalCounter counter = localFallback.compute(key, (k, existing) -> {
+        LocalCounter counter = localFallback.asMap().compute(key, (k, existing) -> {
             if (existing == null || now >= existing.expiresAt) {
                 return new LocalCounter(1, now + windowSeconds);
             }
             existing.count++;
             return existing;
         });
-        return counter.count <= maxRequests;
+        return counter != null && counter.count <= maxRequests;
     }
 
     private static class LocalCounter {

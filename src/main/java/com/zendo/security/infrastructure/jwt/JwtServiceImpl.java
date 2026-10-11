@@ -27,11 +27,23 @@ public class JwtServiceImpl implements JwtService {
             @Value("${zendo.security.jwt.secret}") String secret,
             @Value("${zendo.security.jwt.issuer:zendo}") String issuer,
             @Value("${zendo.security.jwt.expiration-ms:3600000}") long expirationMillis) {
+        validateSecret(secret);
         this.secret = secret;
         this.issuer = issuer;
         this.expirationMillis = expirationMillis;
         this.algorithm = Algorithm.HMAC256(secret);
         this.verifier = JWT.require(algorithm).withIssuer(issuer).build();
+    }
+
+    private void validateSecret(String secret) {
+        if (secret == null || secret.trim().isEmpty()) {
+            throw new IllegalArgumentException("JWT secret must be provided and cannot be empty");
+        }
+        if (secret.trim().length() < 32) {
+            throw new IllegalArgumentException(
+                    "JWT secret must have at least 32 characters (256 bits) for HMAC-SHA256 security"
+            );
+        }
     }
 
     @Override
